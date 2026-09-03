@@ -1,0 +1,91 @@
+==================================================
+STEP 19: 53-FEATURE LIVE VALIDATION REPORT
+==================================================
+Project: NetShield-NIDS
+Live Extractor: live/feature_extractor.py
+Training Schema: 53 features (CICIDS2017 canonical sequence)
+
+--------------------------------------------------
+FEATURE COMPATIBILITY MATRIX (53 / 53)
+--------------------------------------------------
+#   Feature Name                 Training Definition (CICIDS2017)           Live Calculation Method                        Compatible
+----------------------------------------------------------------------------------------------------------------------------------
+0   Destination Port             Destination Port number                    pkt[TCP/UDP].dport                             YES
+1   Flow Duration                Flow duration in microseconds              (last_ts - first_ts) * 1e6                     YES
+2   Total Fwd Packets            Total packets in forward direction         count(fwd_packets)                             YES
+3   Total Length of Fwd Packets  Total payload bytes in forward dir         sum(fwd_packet_lengths)                        YES
+4   Fwd Packet Length Max        Max length of forward packets              max(fwd_packet_lengths)                        YES
+5   Fwd Packet Length Min        Min length of forward packets              min(fwd_packet_lengths)                        YES
+6   Fwd Packet Length Mean       Mean length of forward packets             mean(fwd_packet_lengths)                       YES
+7   Bwd Packet Length Max        Max length of backward packets             max(bwd_packet_lengths)                        YES
+8   Bwd Packet Length Min        Min length of backward packets             min(bwd_packet_lengths)                        YES
+9   Bwd Packet Length Mean       Mean length of backward packets            mean(bwd_packet_lengths)                       YES
+10  Bwd Packet Length Std        Std dev of backward packet lengths         std(bwd_packet_lengths, ddof=1)                YES
+11  Flow Bytes/s                 Total bytes / flow duration (sec)          total_bytes / duration_sec                     YES
+12  Flow Packets/s               Total packets / flow duration (sec)        total_packets / duration_sec                   YES
+13  Flow IAT Mean                Mean inter-arrival time (µs)               mean(delta_t * 1e6)                            YES
+14  Flow IAT Std                 Std dev of inter-arrival times (µs)        std(delta_t * 1e6, ddof=1)                     YES
+15  Flow IAT Max                 Max inter-arrival time (µs)                max(delta_t * 1e6)                             YES
+16  Flow IAT Min                 Min inter-arrival time (µs)                min(delta_t * 1e6)                             YES
+17  Fwd IAT Mean                 Mean forward packet IAT (µs)               mean(fwd_delta_t * 1e6)                        YES
+18  Fwd IAT Std                  Std dev of forward packet IAT (µs)         std(fwd_delta_t * 1e6, ddof=1)                 YES
+19  Fwd IAT Min                  Min forward packet IAT (µs)                min(fwd_delta_t * 1e6)                         YES
+20  Bwd IAT Total                Total backward IAT sum (µs)                sum(bwd_delta_t * 1e6)                         YES
+21  Bwd IAT Mean                 Mean backward packet IAT (µs)              mean(bwd_delta_t * 1e6)                        YES
+22  Bwd IAT Std                  Std dev of backward packet IAT (µs)        std(bwd_delta_t * 1e6, ddof=1)                 YES
+23  Bwd IAT Max                  Max backward packet IAT (µs)               max(bwd_delta_t * 1e6)                         YES
+24  Bwd IAT Min                  Min backward packet IAT (µs)               min(bwd_delta_t * 1e6)                         YES
+25  Fwd PSH Flags                Count of PSH flags in forward direction    sum(fwd_psh_flags)                             YES
+26  Fwd URG Flags                Count of URG flags in forward direction    sum(fwd_urg_flags)                             YES
+27  Fwd Header Length            Total forward IP/Transport header bytes    sum(fwd_header_lengths)                        YES
+28  Bwd Header Length            Total backward IP/Transport header bytes   sum(bwd_header_lengths)                        YES
+29  Bwd Packets/s                Backward packets / flow duration (sec)     bwd_packets / duration_sec                     YES
+30  Min Packet Length            Min packet length across whole flow        min(all_packet_lengths)                        YES
+31  Max Packet Length            Max packet length across whole flow        max(all_packet_lengths)                        YES
+32  Packet Length Mean           Mean packet length across whole flow       mean(all_packet_lengths)                       YES
+33  Packet Length Variance       Sample variance of packet lengths (Bytes²) var(all_packet_lengths, ddof=1)                 YES
+34  FIN Flag Count               Count of FIN flags across flow             sum(fin_flags)                                 YES
+35  SYN Flag Count               Count of SYN flags across flow             sum(syn_flags)                                 YES
+36  RST Flag Count               Count of RST flags across flow             sum(rst_flags)                                 YES
+37  PSH Flag Count               Count of PSH flags across flow             sum(psh_flags)                                 YES
+38  ACK Flag Count               Count of ACK flags across flow             sum(ack_flags)                                 YES
+39  URG Flag Count               Count of URG flags across flow             sum(urg_flags)                                 YES
+40  CWE Flag Count               Count of CWE flags across flow             sum(cwe_flags)                                 YES
+41  ECE Flag Count               Count of ECE flags across flow             sum(ece_flags)                                 YES
+42  Down/Up Ratio                Ratio of backward to forward packets       bwd_packets / fwd_packets                      YES
+43  Average Packet Size          Total flow bytes / total packets           total_bytes / total_packets                    YES
+44  Init_Win_bytes_forward       Advertised TCP window of 1st fwd packet    first_fwd_pkt[TCP].window                      YES
+45  Init_Win_bytes_backward      Advertised TCP window of 1st bwd packet    first_bwd_pkt[TCP].window                      YES
+46  act_data_pkt_fwd             Count of fwd packets with payload > 0      count(fwd_payload > 0)                         YES
+47  min_seg_size_forward         Min TCP header size in forward direction   min(fwd_tcp_header_len)                        YES
+48  Active Mean                  Mean active sub-flow duration (µs)         mean(active_subflows * 1e6)                    YES
+49  Active Std                   Std dev of active sub-flow duration (µs)   std(active_subflows * 1e6, ddof=1)             YES
+50  Active Max                   Max active sub-flow duration (µs)          max(active_subflows * 1e6)                     YES
+51  Active Min                   Min active sub-flow duration (µs)          min(active_subflows * 1e6)                     YES
+52  Idle Std                     Std dev of idle time between subflows (µs) std(idle_periods * 1e6, ddof=1)                YES
+
+--------------------------------------------------
+VALIDATION SUMMARY
+--------------------------------------------------
+Training Features: 53
+Live Features: 53
+Compatible: 53
+Missing: 0
+Incompatible: 0
+Order Match: YES
+Units Validated: YES
+NaN/Inf Check: PASS
+
+Model Modified: NO
+Scaler Modified: NO
+Label Encoder Modified: NO
+Inference Pipeline Modified: NO
+Retraining: NO
+
+==================================================
+FINAL STATUS DECISION:
+STATUS A: ALL 53 LIVE FEATURES VALIDATED
+==================================================
+Notice: Live feature extraction is 100% verified and training-compatible.
+Live ML prediction is staged for subsequent integration per pipeline design.
+==================================================

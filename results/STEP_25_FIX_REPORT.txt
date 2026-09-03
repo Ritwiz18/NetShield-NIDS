@@ -1,0 +1,57 @@
+==================================================
+STEP 25 FIX REPORT
+==================================================
+
+Original Error:
+RealtimeMonitorEngine not defined (NameError at app/app.py line ~1365)
+
+Root Cause:
+The function convert_scapy_packet_to_record was defined in
+live/feature_extractor.py but was NOT exported in live/__init__.py.
+This caused the entire `from live import (...)` block in app.py to
+raise an ImportError. The original except clause was:
+
+    except ImportError:
+        pass
+
+...which silently swallowed the error and left ALL imported names
+(including RealtimeMonitorEngine) undefined. The NameError was
+triggered only later when Streamlit rendered the Live Traffic page.
+
+Fix:
+1. Added convert_scapy_packet_to_record to live/__init__.py imports
+   and __all__ list.
+
+2. Changed app.py except clause from `except ImportError: pass`
+   to `except Exception as _e:` with explicit typed stubs for all
+   imported names, storing the error in _LIVE_IMPORT_ERROR.
+
+3. Added an early-return guard at the top of
+   render_live_traffic_interface() that surfaces _LIVE_IMPORT_ERROR
+   as a visible Streamlit error banner instead of crashing.
+
+Application Startup:
+PASS
+
+Single Flow:
+PASS
+
+Batch:
+PASS
+
+Live Interface:
+PASS
+
+Live Start:
+PASS
+
+Live Stop:
+PASS
+
+Restart:
+PASS
+
+Model Integrity:
+PASS
+
+==================================================

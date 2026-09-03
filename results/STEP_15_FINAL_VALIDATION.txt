@@ -1,0 +1,36 @@
+==================================================
+NIDS FINAL SYSTEM VALIDATION
+==================================================
+
+Dataset:
+PASS
+
+53 Features:
+PASS
+
+15 Classes:
+PASS
+
+Label Encoder:
+PASS
+
+StandardScaler:
+PASS
+
+Extra Trees Model:
+PASS
+
+Inference Pipeline:
+PASS
+
+Feature Order:
+PASS
+
+Batch Prediction:
+PASS
+
+Web Interface:
+PASS
+
+End-to-End Test:
+PASS

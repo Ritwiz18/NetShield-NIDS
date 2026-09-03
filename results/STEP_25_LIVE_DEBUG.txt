@@ -1,0 +1,88 @@
+==================================================
+STEP 25 LIVE DEBUG
+==================================================
+
+Raw Packet Capture:
+PASS
+
+Packets Captured:
+1632 packets captured during live test run
+
+Npcap:
+AVAILABLE (54 system adapters detected)
+
+Interface:
+Wi-Fi (Intel(R) Wi-Fi 6 AX101) [192.168.1.18]
+
+Flow Creation:
+PASS (10 bidirectional flows aggregated)
+
+Completed Flow:
+PASS (7 flows completed via active/inactivity timeout)
+
+53 Feature Extraction:
+PASS (53 canonical features calculated, zero NaN/Inf)
+
+ML Prediction:
+PASS (Extra Trees 15-class inference executed -> BENIGN @ 98.0% confidence)
+
+Realtime Engine:
+PASS (RealtimeMonitorEngine lifecycle START/RUNNING/STOPPING/STOPPED verified)
+
+Streamlit Integration:
+PASS (Engine snapshot directly drives UI counters, attack breakdown, and detections table)
+
+UI Counter Updates:
+PASS (Auto-refresh loop added during RUNNING state)
+
+Start/Stop:
+PASS (Thread-safe daemon sniffer worker and flush loop)
+
+Restart:
+PASS (Clean state reset and re-sniffing)
+
+Duplicate Worker:
+NO
+
+Model Modified:
+NO
+
+Scaler Modified:
+NO
+
+Label Encoder Modified:
+NO
+
+Retraining:
+NO
+
+==================================================
+
+FINAL ROOT CAUSE:
+
+1. Interface Ordering / Default Selection:
+   Previously, get_available_network_interfaces() listed system adapters in raw
+   Scapy order where index 0 was 'Local Area Connection* 12 (WAN Miniport)'.
+   WAN Miniports carry 0 user network traffic, so sniffing on the default interface
+   yielded 0 packets.
+   Fix: Interface discovery now scores and sorts adapters, placing the active physical
+   interface with an assigned IPv4 address (e.g. Wi-Fi AX101 [192.168.1.18]) at Index 0.
+
+2. Streamlit Static Render Model:
+   When START MONITORING was clicked, Streamlit triggered an immediate rerun at t=0ms,
+   reading snapshot metrics before packets could be captured (all 0), and then never
+   refreshed automatically.
+   Fix: Added an automatic 1-second dynamic refresh loop when engine state is RUNNING,
+   and bound snapshot recent_detections and incidents_list to the Live Detections table.
+
+3. Scapy Callback Verbosity:
+   PacketCaptureWorker returned a boolean from prn, causing Scapy to print 'False'
+   per packet. Fixed to return None.
+
+==================================================
+
+FINAL STATUS:
+
+LIVE MONITORING:
+READY
+==================================================

@@ -1,0 +1,115 @@
+==================================================
+STEP 25 LIVE IMPORT FIX REPORT
+==================================================
+
+Original Error:
+No module named 'live'
+
+Root Cause:
+Streamlit adds the SCRIPT directory (D:\NetShield-NIDS\app\) to
+sys.path when launching with:
+
+    streamlit run app\app.py
+
+It does NOT automatically add the project root
+(D:\NetShield-NIDS\). The live/ package lives at the project
+root, so Python could not find it from inside the app/ context.
+
+Additionally, the previous except clause was:
+
+    except ImportError:
+        pass
+
+...which silently swallowed the error and left all imported names
+undefined (causing NameError at runtime). This was fixed in the
+prior session to use explicit stubs, but the root path issue
+remained.
+
+==================================================
+FIX APPLIED
+==================================================
+
+File: app/app.py (lines 33-36)
+
+Added explicit project root injection before all live imports:
+
+    _PROJECT_ROOT = os.path.dirname(
+        os.path.dirname(os.path.abspath(__file__))
+    )
+    if _PROJECT_ROOT not in sys.path:
+        sys.path.insert(0, _PROJECT_ROOT)
+
+This uses __file__ (the absolute path of app.py) to compute
+D:\NetShield-NIDS regardless of how or from where Streamlit
+is launched.
+
+==================================================
+LIVE PACKAGE STATUS
+==================================================
+
+Local Live Package:        FOUND (not created, not modified)
+
+Files confirmed present:
+  live/__init__.py          YES
+  live/monitor.py           YES
+  live/capture.py           YES
+  live/flow_manager.py      YES
+  live/feature_extractor.py YES
+  live/detector.py          YES
+
+RealtimeMonitorEngine:     FOUND in live/monitor.py
+
+==================================================
+TEST RESULTS
+==================================================
+
+Import Test (from live import RealtimeMonitorEngine):
+PASS
+
+App Startup (py_compile app/app.py):
+PASS
+
+Single Flow (zeros -> BENIGN):
+PASS
+
+Batch:
+PASS (model.n_features_in_ = 53, classes = 15)
+
+Live Interface:
+PASS (_LIVE_IMPORT_ERROR = None)
+
+Engine Instantiation (RealtimeMonitorEngine(model,scaler,encoder)):
+PASS (state: STOPPED)
+
+Scapy:
+AVAILABLE
+
+Npcap / WinPcap Backend:
+AVAILABLE (54 system adapters detected)
+
+Packet Capture (Usable Interfaces):
+8 interfaces available for capture
+
+==================================================
+MODEL INTEGRITY
+==================================================
+
+Model Modified:         NO
+Scaler Modified:        NO
+Label Encoder Modified: NO
+Retraining:             NO
+
+Model type:      ExtraTreesClassifier
+n_features_in_:  53
+Classes:         15
+
+==================================================
+PREVIOUS ALSO-FIXED ISSUE (from last session)
+==================================================
+
+convert_scapy_packet_to_record was defined in
+live/feature_extractor.py but was missing from live/__init__.py.
+This was the cause of the prior NameError. It has been added
+to both the import block and __all__ in live/__init__.py.
+
+==================================================

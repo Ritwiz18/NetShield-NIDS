@@ -1,0 +1,96 @@
+==================================================
+STEP 25 — NETWORK INTERFACE FIX REPORT
+==================================================
+
+Original Error:
+AttributeError: 'tuple' object has no attribute 'keys'
+Location: app/app.py line 1418
+
+Root Cause:
+There were TWO definitions of get_available_network_interfaces():
+
+1. IMPORTED from live.capture (line 50):
+   Returns: dict   {display_name: iface_obj}
+
+2. LOCAL DUPLICATE in app.py (line 550):
+   Returns: tuple  (iface_dict, None)
+
+The local definition on line 550 SHADOWED the imported
+version. Python uses the last-defined name, so:
+
+    iface_dict = get_available_network_interfaces()
+
+assigned a TUPLE (dict, None) to iface_dict.
+
+Then:
+
+    options=list(iface_dict.keys())
+
+crashed because a tuple has no .keys() method.
+
+==================================================
+FIX APPLIED
+==================================================
+
+Removed the local duplicate function (app.py lines 550-567).
+
+The imported version from live/capture.py is now the sole
+definition. It returns a plain dict, which is what the UI
+code on line 1418 expects.
+
+No other call sites existed. No tuple unpacking was used
+anywhere for this function.
+
+==================================================
+INTERFACE DISCOVERY
+==================================================
+
+Interface Source Function:
+live.capture.get_available_network_interfaces()
+
+Returned Type:
+dict
+
+Returned Structure:
+{
+    "Wi-Fi (Intel(R) Wi-Fi 6 AX101)": <NetworkInterface_Win>,
+    "Ethernet (Realtek ...)": <NetworkInterface_Win>,
+    ...
+}
+
+Keys = human-readable display names
+Values = Scapy NetworkInterface_Win objects (passed to sniff())
+
+Interfaces Detected:
+8 usable interfaces
+
+Example Interfaces:
+- Local Area Connection* 12 (WAN Miniport (Network Monitor))
+- Wi-Fi (Intel(R) Wi-Fi 6 AX101)
+- Local Area Connection* 11 (WAN Miniport (IPv6))
+
+==================================================
+TEST RESULTS
+==================================================
+
+Interface Normalization:     PASS
+Display Name:                PASS
+Capture Identifier:          PASS (NetworkInterface_Win objects)
+Interface Selection:         PASS (simulated selectbox)
+Streamlit Startup:           PASS (py_compile)
+Import Test:                 PASS
+
+Single Flow:                 PASS (zeros -> BENIGN)
+Batch:                       PASS
+Live Interface:              PASS
+Engine Instantiation:        PASS (state: STOPPED)
+
+Packet Capture:              NOT TESTED (requires Streamlit UI)
+Npcap:                       AVAILABLE (54 system adapters)
+
+Model Modified:              NO
+Scaler Modified:             NO
+Label Encoder Modified:      NO
+Retraining:                  NO
+
+==================================================

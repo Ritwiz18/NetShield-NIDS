@@ -1,0 +1,125 @@
+======================================================================
+NIDS INFERENCE SYSTEM — STEP 13 END-TO-END TEST REPORT
+======================================================================
+Project      : D:\7th sem project
+Model        : Extra Trees
+Features     : 53
+Classes      : 15
+
+──────────────────────────────────────────────────────────────────────
+SUMMARY
+──────────────────────────────────────────────────────────────────────
+  TEST 1 — Demo Mode                            PASS
+  TEST 2 — Batch Mode                           PASS
+  TEST 3 — Invalid Input Handling               PASS
+  TEST 4 — Model Consistency                    PASS
+  TEST 5 — Feature Order Verification           PASS
+
+End-to-end result: PASS
+
+
+============================================================
+TEST: TEST 1 — Demo Mode
+Result: PASS
+
+  [OK]   Script exited with code 0 (success)
+  [OK]   Model loads
+  [OK]   Scaler loads
+  [OK]   Encoder loads
+  [OK]   53 features expected
+  [OK]   Predictions generated
+  [OK]   Confidence shown
+  [OK]   Labels displayed
+
+============================================================
+TEST: TEST 2 — Batch Mode
+Result: PASS
+
+  [OK]   Script exited with code 0 (success)
+  [OK]   batch_predictions.csv created at: D:\7th sem project\inference\batch_predictions.csv
+  [OK]   Rows predicted: 5
+         Columns: ['True_Label', 'Predicted_Class', 'Predicted_Label', 'Confidence', 'P(BENIGN)', 'P(Bot)', 'P(DDoS)', 'P(DoS GoldenEye)', 'P(DoS Hulk)', 'P(DoS Slowhttptest)', 'P(DoS slowloris)', 'P(FTP-Patator)', 'P(Heartbleed)', 'P(Infiltration)', 'P(PortScan)', 'P(SSH-Patator)', 'P(Web Attack � Brute Force)', 'P(Web Attack � Sql Injection)', 'P(Web Attack � XSS)', 'Match']
+  [OK]   Predicted_Label column present
+           -> BENIGN
+           -> BENIGN
+           -> BENIGN
+           -> BENIGN
+           -> BENIGN
+  [OK]   Confidence column present
+           Confidence: 0.8850 (88.50%)
+           Confidence: 0.7300 (73.00%)
+           Confidence: 0.9200 (92.00%)
+           Confidence: 0.9000 (90.00%)
+           Confidence: 0.9450 (94.50%)
+  [OK]   No NaN or Inf in Confidence values
+         Accuracy vs true labels: 0.2000 (20.00%)
+  [OK]   Results also saved to: D:\7th sem project\results\inference_batch_results.csv
+
+============================================================
+TEST: TEST 3 — Invalid Input Handling
+Result: PASS
+
+         Temporary invalid CSV created: D:\7th sem project\inference\_tmp_invalid_test.csv (10 columns, not 53)
+  [OK]   Script correctly returned non-zero exit code (1) for invalid input
+  [OK]   Clear error message found in script output
+         Error message (excerpt): Traceback (most recent call last):
+  File "D:\7th sem project\inference\nids_inference.py", line 470, in <module>
+    main()
+    ~~~~^^
+  File "D:\7th sem project\inference\nids_inference.py", line 430, in main
+    mode_batch(model, scaler, encoder, model_name, args.input)
+    ~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\7th sem project\inference\nids_inference.py", line 339, in mode_batch
+    X_scaled = preprocess(df_features, scaler)
+  File "D:\7th sem project\inferenc
+  [OK]   No uncontrolled exception (AttributeError/IndexError/KeyError) detected
+  [OK]   Temporary invalid CSV removed: D:\7th sem project\inference\_tmp_invalid_test.csv
+
+============================================================
+TEST: TEST 4 — Model Consistency
+Result: PASS
+
+  [OK]   final_model.txt reads: 'Extra Trees'
+  [OK]   Selected model is 'Extra Trees' as expected
+  [OK]   Model file exists: D:\7th sem project\extra_trees_model.pkl
+  [OK]   Model loaded successfully: ExtraTreesClassifier
+  [OK]   Model expects 53 features
+  [OK]   Feature count matches expected: 53
+  [OK]   Model supports predict_proba() (confidence scores available)
+  [OK]   scaler.pkl exists: D:\7th sem project\models\scaler.pkl
+  [OK]   Scaler loaded: StandardScaler
+  [OK]   Scaler has .transform() method
+  [OK]   Scaler fitted on 53 features
+  [OK]   label_encoder.pkl exists: D:\7th sem project\models\label_encoder.pkl
+  [OK]   Encoder loaded: LabelEncoder
+  [OK]   Encoder classes (15): ['BENIGN', 'Bot', 'DDoS', 'DoS GoldenEye', 'DoS Hulk', 'DoS Slowhttptest', 'DoS slowloris', 'FTP-Patator', 'Heartbleed', 'Infiltration', 'PortScan', 'SSH-Patator', 'Web Attack ? Brute Force', 'Web Attack ? Sql Injection', 'Web Attack ? XSS']
+  [OK]   Encoder has 15 classes as expected
+  [OK]   Encoder has .inverse_transform() method
+
+============================================================
+TEST: TEST 5 — Feature Order Verification
+Result: PASS
+
+  [OK]   Loaded 53 features from nids_inference.py
+  [OK]   Loaded 53 features from cleaned_dataset.csv header
+  [OK]   Feature count matches: 53
+  [OK]   All 53 features match exactly in correct order
+  [OK]   TRAINING_FEATURE_ORDER in test script also matches dataset
+
+======================================================================
+BATCH PREDICTION DETAILS
+======================================================================
+Samples tested: 5
+Predictions generated: 5
+
+#    True Label                              Predicted Label                         Confidence  Match
+---------------------------------------------------------------------------------------------------------
+1    BENIGN                                  BENIGN                                  0.8850      [OK]
+2    DDoS                                    BENIGN                                  0.7300      [WRONG]
+3    PortScan                                BENIGN                                  0.9200      [WRONG]
+4    FTP-Patator                             BENIGN                                  0.9000      [WRONG]
+5    DoS Hulk                                BENIGN                                  0.9450      [WRONG]
+
+======================================================================
+END OF REPORT
+======================================================================

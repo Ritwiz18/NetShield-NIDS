@@ -1,0 +1,67 @@
+==================================================
+STEP 25 FLOW DEBUG
+==================================================
+
+Verified Interface:
+Wi-Fi (Intel(R) Wi-Fi 6 AX101)
+
+Raw Packet Capture:
+PASS
+
+Packets Captured:
+1846
+
+Packets Processed:
+1846
+
+Flow Creation:
+PASS
+
+Unique Flows:
+175
+
+Active Flows:
+95
+
+Completed Flows:
+175
+
+Forward/Backward Tracking:
+PASS
+
+Flow Timeout:
+PASS
+
+Standalone Flow Builder:
+PASS
+
+Streamlit Flow Integration:
+PASS
+
+Root Cause:
+1. Previously FlowManager only accepted IPv4 (if IP not in pkt: return).
+   Modern web browsing on Windows operates heavily over IPv6 (e.g. DNS, HTTPS).
+   Added native IPv6 support so all browser traffic is aggregated into flows.
+2. In Streamlit, start_monitoring previously ignored interface switch if state
+   was RUNNING; fixed to cleanly restart sniffer worker on the chosen adapter.
+3. Added auto-refresh loop in Streamlit so dashboard updates counters in real-time.
+
+Model Modified:
+NO
+
+Scaler Modified:
+NO
+
+Label Encoder Modified:
+NO
+
+Retraining:
+NO
+
+Fake Data:
+NO
+
+==================================================
+STATUS:
+REAL PACKETS -> FLOW BUILDER -> REAL FLOWS VERIFIED
+==================================================

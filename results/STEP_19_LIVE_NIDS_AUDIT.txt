@@ -1,0 +1,125 @@
+==================================================
+STEP 19: REAL LIVE NIDS PIPELINE AUDIT REPORT
+==================================================
+Project: NetShield-NIDS
+Workspace: D:\NetShield-NIDS
+Audit Date: 2026-08-29
+
+--------------------------------------------------
+1. ORIGINAL TRAINING DATASET
+--------------------------------------------------
+- Dataset: Canadian Institute for Cybersecurity Intrusion Detection Evaluation Dataset (CICIDS2017)
+- Raw Dataset Files: MachineLearningCVE/*.pcap_ISCX.csv (8 daily capture partitions)
+- Processed Dataset: data/processed/cleaned_dataset.csv (629 MB, 53 numerical features + Label)
+- Target Classes: 15 Classes (14 distinct attack types + BENIGN)
+
+--------------------------------------------------
+2. AUTHORITATIVE 53 FEATURES & EXACT ORDER
+--------------------------------------------------
+Index  Feature Name
+--------------------------------------------------
+0      Destination Port
+1      Flow Duration
+2      Total Fwd Packets
+3      Total Length of Fwd Packets
+4      Fwd Packet Length Max
+5      Fwd Packet Length Min
+6      Fwd Packet Length Mean
+7      Bwd Packet Length Max
+8      Bwd Packet Length Min
+9      Bwd Packet Length Mean
+10     Bwd Packet Length Std
+11     Flow Bytes/s
+12     Flow Packets/s
+13     Flow IAT Mean
+14     Flow IAT Std
+15     Flow IAT Max
+16     Flow IAT Min
+17     Fwd IAT Mean
+18     Fwd IAT Std
+19     Fwd IAT Min
+20     Bwd IAT Total
+21     Bwd IAT Mean
+22     Bwd IAT Std
+23     Bwd IAT Max
+24     Bwd IAT Min
+25     Fwd PSH Flags
+26     Fwd URG Flags
+27     Fwd Header Length
+28     Bwd Header Length
+29     Bwd Packets/s
+30     Min Packet Length
+31     Max Packet Length
+32     Packet Length Mean
+33     Packet Length Variance
+34     FIN Flag Count
+35     SYN Flag Count
+36     RST Flag Count
+37     PSH Flag Count
+38     ACK Flag Count
+39     URG Flag Count
+40     CWE Flag Count
+41     ECE Flag Count
+42     Down/Up Ratio
+43     Average Packet Size
+44     Init_Win_bytes_forward
+45     Init_Win_bytes_backward
+46     act_data_pkt_fwd
+47     min_seg_size_forward
+48     Active Mean
+49     Active Std
+50     Active Max
+51     Active Min
+52     Idle Std
+
+--------------------------------------------------
+3. FEATURE DEFINITIONS & UNITS
+--------------------------------------------------
+- Duration / IAT Features: Microseconds (µs)
+- Length Features: Bytes
+- Rate Features: Per second (Bytes/s, Packets/s)
+- TCP Flags: Integer occurrence counts across packets
+- Window Sizes: Bytes (advertised TCP window)
+- Segment Sizes: Bytes (TCP header data offset)
+- Active / Idle Sub-flow Statistics: Microseconds (µs) with 5.0s idle threshold
+
+--------------------------------------------------
+4. EXISTING PREPROCESSING
+--------------------------------------------------
+- StandardScaler: models/scaler.pkl (fitted on 53 features during offline training)
+- Z-score transformation: (X - mean_) / scale_
+- LabelEncoder: models/label_encoder.pkl (15 classes mapping strings to integers 0-14)
+
+--------------------------------------------------
+5. EXISTING INFERENCE PIPELINE
+--------------------------------------------------
+- Model: extra_trees_model.pkl (ExtraTreesClassifier, 100 estimators)
+- Offline Verification: Tested in inference/nids_inference.py & step13_inference_test.py
+- Input format required: 2D numpy array / pandas DataFrame of shape (N, 53)
+
+--------------------------------------------------
+6. EXISTING LIVE PACKET CAPTURE
+--------------------------------------------------
+- Implementation: live_packet_sniffer_and_extractor() via Scapy + Npcap
+- Interface Detection: get_available_network_interfaces() via IFACES metadata
+- Lifecycle: Asynchronous bounded packet sniffing with duration/packet limit
+- Privacy: Zero payload content is captured or stored; headers only
+
+--------------------------------------------------
+7. EXISTING FLOW-GENERATION IMPLEMENTATION
+--------------------------------------------------
+- Flow Key: 5-tuple (Source IP, Destination IP, Source Port, Destination Port, Protocol)
+- Direction Tracking: Initial packet sets Forward (Client -> Server); reverse sets Backward
+- Data Structure: live/feature_extractor.py (FlowData, PacketRecord)
+
+--------------------------------------------------
+8. EXISTING STREAMLIT LIVE MODE
+--------------------------------------------------
+- Mode: "Live Traffic Monitor (Prototype)" in app/app.py
+- Features: Adapter dropdown, duration input, START/STOP controls, flow table, protocol chart
+- ML Safety: Live ML prediction remains locked/disconnected until feature extraction is validated
+
+==================================================
+AUDIT SUMMARY:
+All 10 project components identified, verified, and mapped.
+==================================================

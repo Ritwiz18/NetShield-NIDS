@@ -1,0 +1,68 @@
+==================================================
+STEP 25 ZERO COUNTER DEBUG REPORT
+==================================================
+
+Raw Packet Capture:
+PASS
+
+Packets Captured:
+751 (Raw Sniff) / 348 (Engine)
+
+Interface:
+Wi-Fi (Intel(R) Wi-Fi 6 AX101) [192.168.1.18]
+
+Npcap:
+AVAILABLE
+
+Capture Thread:
+PASS
+
+Capture Callback:
+PASS
+
+Flow Creation:
+PASS
+
+Completed Flows:
+PASS
+
+53 Feature Extraction:
+PASS
+
+ML Prediction:
+PASS (Verdict: BENIGN @ 96.5%)
+
+Streamlit State:
+PASS
+
+UI Counter Updates:
+PASS
+
+Root Cause:
+1. Interface selection had WAN Miniport (0 packets) at Index 0 because OS
+   adapters were previously returned unsorted. Scored discovery now prioritizes
+   active IPv4 adapters (Wi-Fi AX101 [192.168.1.18]).
+2. RealtimeMonitorEngine.start_monitoring previously ignored interface switch
+   requests if state was already RUNNING. Fixed to cleanly stop and switch.
+3. Streamlit static render loop previously showed 0 at t=0ms without auto-rerun.
+   Added dynamic auto-refresh while running.
+
+Model Modified:
+NO
+
+Scaler Modified:
+NO
+
+Label Encoder Modified:
+NO
+
+Retraining:
+NO
+
+Fake Metrics:
+NO
+
+==================================================
+STATUS:
+LIVE MONITORING PIPELINE VERIFIED AND OPERATIONAL
+==================================================

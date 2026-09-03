@@ -1,0 +1,50 @@
+==================================================
+NIDS BATCH TEST
+==================================================
+
+Sample file:
+inference/sample_batch.csv
+
+CSV loading:
+PASS
+
+53 feature validation:
+PASS
+
+Feature order:
+PASS
+
+Model loading:
+PASS
+
+Scaler loading:
+PASS
+
+Label encoder loading:
+PASS
+
+Prediction:
+PASS
+
+Confidence:
+PASS
+
+Probability output:
+PASS
+
+Batch summary:
+PASS
+
+Attack distribution:
+PASS
+
+Download:
+PASS
+
+Invalid CSV handling:
+PASS
+
+No retraining:
+PASS
+
+==================================================

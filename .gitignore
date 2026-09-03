@@ -1,0 +1,60 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Virtual environments
+venv/
+.venv/
+env/
+ENV/
+env.bak/
+venv.bak/
+
+# Machine Learning Models and Artifacts (Large Binaries)
+*.pkl
+*.joblib
+*.h5
+*.hdf5
+*.pt
+*.pth
+*.onnx
+*.weights
+extra_trees_model.pkl
+models/*.pkl
+
+# Datasets and Large Capture Files
+data/
+MachineLearningCVE/
+*.pcap
+*.pcapng
+*.cap
+
+# Logs and databases
+*.log
+*.sqlite3
+*.db
+
+# OS & IDE files
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Archives and binaries
+*.zip
+*.tar
+*.gz
+*.rar
+*.7z
+*.exe
+*.dll
+*.so
+*.dylib
+
+# Temporary and backup files
+*.tmp
+*.temp
+app/app_backup_step18.py
