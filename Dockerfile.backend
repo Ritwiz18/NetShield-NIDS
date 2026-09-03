@@ -1,0 +1,48 @@
+# ==================================================
+# NetShield-NIDS — FastAPI Backend & Scapy Engine Dockerfile
+# ==================================================
+FROM python:3.11-slim
+
+# Set Python environment variables
+ENV PYTHONUNBUFFERED=1 \
+    PYTHONDONTWRITEBYTECODE=1 \
+    DEBIAN_FRONTEND=noninteractive
+
+WORKDIR /app
+
+# Install system utilities & packet capture dependencies (libpcap for Scapy)
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    libpcap-dev \
+    tcpdump \
+    net-tools \
+    iproute2 \
+    gcc \
+    curl \
+    && rm -rf /var/lib/apt-lists/*
+
+# Copy requirements file
+COPY requirements.txt .
+
+# Install Python dependencies
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Copy source modules, model artifacts, and engine components
+COPY live/ ./live/
+COPY backend/ ./backend/
+COPY models/ ./models/
+COPY app/ ./app/
+COPY inference/ ./inference/
+COPY src/ ./src/
+COPY tools/ ./tools/
+COPY extra_trees_model.pkl .
+COPY nids_predict.py .
+
+# Expose REST API port
+EXPOSE 8000
+
+# Healthcheck for container state
+HEALTHCHECK --interval=10s --timeout=5s --start-period=10s --retries=3 \
+  CMD python -c "import urllib.request; urllib.request.urlopen('http://localhost:8000/api/status')" || exit 1
+
+# Launch FastAPI server with Uvicorn
+CMD ["uvicorn", "backend.api:app", "--host", "0.0.0.0", "--port", "8000"]

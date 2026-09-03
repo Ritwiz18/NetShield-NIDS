@@ -1,0 +1,28 @@
+# Git & VCS
+.git
+.gitignore
+
+# Python Cache & Virtual Environments
+__pycache__/
+*.py[cod]
+*$py.class
+.venv/
+venv/
+env/
+*.log
+
+# IDE & OS Files
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# Frontend Dependencies & Build Artifacts (Built separately inside Docker builder)
+node_modules/
+frontend/node_modules/
+frontend/dist/
+.vite/
+
+# Temp files
+*.tmp
+*.temp

@@ -1,0 +1,48 @@
+version: '3.8'
+
+services:
+  # ── Python FastAPI Backend & NIDS Engine ───────────────────────────
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile.backend
+    container_name: netshield-backend
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    # Linux Network & Scapy Live Packet Capture Capabilities
+    # On Linux host, NET_ADMIN & NET_RAW allow Scapy to bind raw socket interfaces
+    cap_add:
+      - NET_ADMIN
+      - NET_RAW
+    # On Linux host machines, uncommenting network_mode: host gives direct physical adapter access
+    # network_mode: host
+    environment:
+      - PYTHONUNBUFFERED=1
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://localhost:8000/api/status')\""]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+
+  # ── React + Vite Production SOC Web Dashboard ──────────────────────
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: netshield-frontend
+    restart: unless-stopped
+    ports:
+      - "5173:80"
+    depends_on:
+      backend:
+        condition: service_healthy
+    environment:
+      - VITE_API_URL=http://localhost:8000
+    healthcheck:
+      test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider http://localhost:80/ || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 5s

@@ -410,7 +410,74 @@ FastAPI REST API (:8000) (backend/api.py)
   └── React SOC Web Dashboard (:5173) (frontend/)
 ```
 
-### Usage Commands
+---
+
+## 16. Docker Container Deployment
+
+NetShield-NIDS is fully containerized using Docker and Docker Compose for production deployment across Linux and Windows servers without manual environment configuration.
+
+### Container Architecture
+```
+                     Browser (Host User)
+                              │
+                              ▼
+                    ┌──────────────────┐
+                    │ React Dashboard  │
+                    │ Nginx Container  │
+                    │      :5173       │
+                    └────────┬─────────┘
+                             │
+                             ▼
+                    ┌──────────────────┐
+                    │ FastAPI Backend  │
+                    │ Python Container │
+                    │      :8000       │
+                    └────────┬─────────┘
+                             │
+                             ▼
+                    ┌──────────────────┐
+                    │ Net Shield NIDS  │
+                    │ Monitor Engine   │
+                    └────────┬─────────┘
+                             │
+                       ┌─────┴──────┐
+                       ▼            ▼
+                    Scapy          ML
+                    Capture       Detector
+                       │            │
+                       └─────┬──────┘
+                             ▼
+                         Detection
+                             │
+                             ▼
+                         Dashboard
+```
+
+### Docker Quickstart
+
+```bash
+# 1. Build and start all services in detached mode
+docker compose up --build -d
+
+# 2. View running container logs
+docker compose logs -f
+
+# 3. Stop services
+docker compose down
+```
+
+### Container Endpoints
+* **React SOC Web Dashboard:** `http://localhost:5173`
+* **FastAPI REST API Service:** `http://localhost:8000`
+* **Interactive OpenAPI Docs:** `http://localhost:8000/docs`
+
+### Network Packet Capture Capabilities
+* **Linux Hosts:** Scapy live packet capture requires binding to raw host network sockets. `docker-compose.yml` configures `NET_ADMIN` and `NET_RAW` Linux capabilities (`cap_add`). For physical adapter sniffing on Linux servers, set `network_mode: host`.
+* **Windows Host Limitation:** On Windows Docker Desktop (WSL2), Docker containers run inside a hypervisor virtual machine. Live capture inside Windows containers sniffs the container virtual network. For native Windows physical Wi-Fi/Ethernet capture, use `run.bat` or native Python execution.
+
+---
+
+## 17. Usage Commands
 
 ### 1. Launch FastAPI REST API Server
 ```bash
