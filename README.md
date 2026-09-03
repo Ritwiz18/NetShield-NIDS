@@ -293,58 +293,136 @@ D:\7th sem project\
 └── README.md                           # Master Project Documentation
 ```
 
----
+## 15. FastAPI REST API Layer
 
-## 17. Installation
+NetShield-NIDS includes a production-ready FastAPI REST API backend (`backend/api.py`) that connects directly to the `RealtimeMonitorEngine`. This enables real-time metrics streaming, traffic time-series, threat analytics, incident alerts, and network adapter control for modern web dashboards (React, Vue, Next.js, Vite).
 
+### System Architecture
+```
+Network Traffic
+       ↓
+Scapy Capture (live/capture.py)
+       ↓
+Flow Manager (live/flow_manager.py)
+       ↓
+53-Feature Extractor (live/feature_extractor.py)
+       ↓
+ML Extra Trees Detector (live/detector.py)
+       ↓
+Real-Time Engine (live/monitor.py)
+       ↓
+FastAPI REST API (backend/api.py)
+  ├── Streamlit Web App (app/app.py)
+  └── Future Web Dashboard (React/Next.js/Vite)
+```
+
+### Running the API
 ```bash
-# Clone or navigate to the project directory
-cd /d "D:\7th sem project"
+uvicorn backend.api:app --host 0.0.0.0 --port 8000
+```
+Documentation will be accessible at `http://localhost:8000/docs`.
 
-# Install all verified dependencies
-pip install -r requirements.txt
+### API Endpoint Summary
+| Method | Endpoint | Description |
+|---|---|---|
+| `GET` | `/api/status` | Engine running state, interface, uptime, and system metadata |
+| `GET` | `/api/dashboard` | Unified snapshot of packets, active/completed flows, classifications, attack breakdown, protocol breakdown, and top source IPs |
+| `GET` | `/api/traffic` | Lightweight time-series traffic stats (packets/sec, bytes/sec, flow counts) for frontend charts |
+| `GET` | `/api/threats` | Detailed threat analytics, attack breakdown by type, and severity distribution |
+| `GET` | `/api/alerts` | Security incident alerts formatted with 5-tuples, confidence, severity, and actionable explanations |
+| `GET` | `/api/interfaces` | List of host network adapters with IP addresses and prioritization |
+| `POST` | `/api/monitor/start` | Starts live Scapy packet capture and detection on target network adapter |
+| `POST` | `/api/monitor/stop` | Safely stops capture worker and flushes active flows |
+| `POST` | `/api/monitor/reset` | Resets session counters and detection history |
+
+### Example API Response (`GET /api/dashboard`)
+```json
+{
+  "status": "ok",
+  "state": "RUNNING",
+  "interface": "Wi-Fi (Intel(R) Wi-Fi 6 AX101) [192.168.1.8]",
+  "packets_captured": 1245,
+  "active_flows": 12,
+  "completed_flows": 84,
+  "classified_flows": 84,
+  "normal_count": 81,
+  "threat_count": 3,
+  "review_count": 0,
+  "uncertain_count": 0,
+  "high_risk_threat_count": 2,
+  "attack_rate": 3.57,
+  "attack_breakdown": {
+    "DDoS": 2,
+    "PortScan": 1
+  },
+  "protocol_breakdown": {
+    "TCP": 78,
+    "UDP": 6,
+    "ICMP": 0,
+    "Other": 0
+  },
+  "recent_detections": [
+    {
+      "Timestamp": "19:40:12",
+      "Source": "192.168.1.105",
+      "Destination": "10.0.0.1",
+      "Source Port": 54321,
+      "Destination Port": 80,
+      "Protocol": "TCP",
+      "Prediction": "DDoS",
+      "Confidence": "99.8%",
+      "Confidence Level": "HIGH",
+      "Operational Status": "THREAT",
+      "Severity": "HIGH",
+      "Is_Benign": false,
+      "Explanation": "High volume or concentrated traffic patterns that may indicate a distributed denial-of-service attempt."
+    }
+  ]
+}
 ```
 
 ---
 
-## 18. Usage Commands
+## 16. Usage Commands
 
-### 1. Launch Web Application
+### 1. Launch FastAPI REST API Server
+```bash
+uvicorn backend.api:app --host 0.0.0.0 --port 8000
+```
+
+### 2. Run API Verification Test Suite
+```bash
+python tools/test_api.py
+```
+
+### 3. Launch Streamlit Web Application
 ```bash
 streamlit run app/app.py
 ```
 
-### 2. Run Single Demo Inference
+### 4. Run Single Demo Inference
 ```bash
 python inference/nids_inference.py --mode demo
 ```
 
-### 3. Run Batch CSV Inference
+### 5. Run Batch CSV Inference
 ```bash
 python inference/nids_inference.py --mode batch --input inference/sample_batch.csv --output results/batch_output.csv
 ```
 
-### 4. Run Full System Validation
+### 6. Run Full Real-Time Pipeline Test
 ```bash
-python inference/step15_final_validation.py
+python tools/test_realtime_ml.py
 ```
 
 ---
 
-## 19. Limitations
-- **Statistical Flow Summaries:** Requires network traffic to be pre-aggregated into flow statistics (via tools such as CICFlowMeter) rather than processing raw packet frames directly.
+## 17. Limitations
+- **Statistical Flow Summaries:** Requires network traffic to be pre-aggregated into flow statistics (via tools such as CICFlowMeter or live `FlowManager`) rather than processing raw packet frames directly.
 - **Ultra-Rare Classes:** Extremely scarce attacks in the original dataset (e.g., Heartbleed with 10 total instances) have wider confidence intervals than voluminous attacks like DDoS.
 - **Offline Model:** Does not feature automated online reinforcement learning on live streaming interfaces.
 
 ---
 
-## 20. Future Improvements
-- **Live Packet Capture Interface:** Direct integration with `libpcap` / `scapy` to compute 53 flow metrics in real time from network adapters.
-- **Model Compression & Quantization:** Apply pruning and tree quantization to reduce the 1.47 GB model footprint for edge deployments.
-- **Automated SIEM & Webhook Alerts:** Integrate automated alert dispatching to Splunk, Elastic SIEM, or email notifications upon detecting high-severity attacks.
-- **Continuous Learning Pipeline:** Automated feedback-driven retraining loop for emerging zero-day vulnerability signatures.
-
----
-
-## 21. Conclusion
-The Network Intrusion Detection System represents a robust, highly optimized, and thoroughly tested machine learning solution for cyber threat identification. With a **99.87% accuracy rate**, leak-free preprocessing, standardized 53-feature architecture, resilient validation test suites, and an intuitive web interface, the system provides an effective foundation for modern network security monitoring.
+## 18. Conclusion
+The Network Intrusion Detection System represents a robust, highly optimized, and thoroughly tested machine learning solution for cyber threat identification. With a **99.87% accuracy rate**, leak-free preprocessing, standardized 53-feature architecture, resilient validation test suites, Streamlit dashboard, and a **FastAPI REST API layer**, the system provides an effective foundation for modern network security monitoring.
