@@ -383,34 +383,67 @@ Documentation will be accessible at `http://localhost:8000/docs`.
 
 ---
 
-## 16. Usage Commands
+### Running the React Web Dashboard
+```bash
+cd frontend
+npm install
+npm run dev
+```
+Accessible at `http://localhost:5173`.
+
+### System Architecture
+```
+Network Traffic
+       ↓
+Scapy Capture (live/capture.py)
+       ↓
+Flow Manager (live/flow_manager.py)
+       ↓
+53-Feature Extractor (live/feature_extractor.py)
+       ↓
+ML Extra Trees Detector (live/detector.py)
+       ↓
+Real-Time Engine (live/monitor.py)
+       ↓
+FastAPI REST API (:8000) (backend/api.py)
+  ├── Streamlit Web App (app/app.py)
+  └── React SOC Web Dashboard (:5173) (frontend/)
+```
+
+### Usage Commands
 
 ### 1. Launch FastAPI REST API Server
 ```bash
 uvicorn backend.api:app --host 0.0.0.0 --port 8000
 ```
 
-### 2. Run API Verification Test Suite
+### 2. Launch React SOC Web Dashboard
+```bash
+cd frontend
+npm run dev
+```
+
+### 3. Run API Verification Test Suite
 ```bash
 python tools/test_api.py
 ```
 
-### 3. Launch Streamlit Web Application
+### 4. Launch Streamlit Web Application
 ```bash
 streamlit run app/app.py
 ```
 
-### 4. Run Single Demo Inference
+### 5. Run Single Demo Inference
 ```bash
 python inference/nids_inference.py --mode demo
 ```
 
-### 5. Run Batch CSV Inference
+### 6. Run Batch CSV Inference
 ```bash
 python inference/nids_inference.py --mode batch --input inference/sample_batch.csv --output results/batch_output.csv
 ```
 
-### 6. Run Full Real-Time Pipeline Test
+### 7. Run Full Real-Time Pipeline Test
 ```bash
 python tools/test_realtime_ml.py
 ```

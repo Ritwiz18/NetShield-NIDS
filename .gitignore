@@ -11,6 +11,12 @@ ENV/
 env.bak/
 venv.bak/
 
+# Node.js / Frontend dependencies & build artifacts
+node_modules/
+frontend/node_modules/
+frontend/dist/
+.vite/
+
 # Machine Learning Models and Artifacts (Large Binaries)
 *.pkl
 *.joblib
