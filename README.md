@@ -391,24 +391,49 @@ npm run dev
 ```
 Accessible at `http://localhost:5173`.
 
-### System Architecture
+### System Architecture (Sensor + Server Mode)
 ```
-Network Traffic
-       ↓
-Scapy Capture (live/capture.py)
-       ↓
-Flow Manager (live/flow_manager.py)
-       ↓
-53-Feature Extractor (live/feature_extractor.py)
-       ↓
-ML Extra Trees Detector (live/detector.py)
-       ↓
-Real-Time Engine (live/monitor.py)
-       ↓
-FastAPI REST API (:8000) (backend/api.py)
-  ├── Streamlit Web App (app/app.py)
-  └── React SOC Web Dashboard (:5173) (frontend/)
+                  Physical Host Network Traffic (Wi-Fi / Ethernet)
+                                       │
+                                       ▼
+                  ┌──────────────────────────────────────────┐
+                  │    Native NetShield Sensor (Windows Host) │
+                  │  Scapy Capture -> FlowManager            │
+                  │  -> 53-Feature Extractor -> ML Detector  │
+                  │  -> RealtimeMonitorEngine                │
+                  │  -> NetShieldSensorClient (live/sensor)  │
+                  └────────────────────┬─────────────────────┘
+                                       │
+                         HTTP POST /api/sensor/data (JSON)
+                                       │
+                                       ▼
+                  ┌──────────────────────────────────────────┐
+                  │    Dockerized FastAPI Server (:8000)     │
+                  │  (Receives & Aggregates Sensor Metrics)  │
+                  └────────────────────┬─────────────────────┘
+                                       │
+                                       ▼
+                  ┌──────────────────────────────────────────┐
+                  │   Dockerized React SOC Dashboard (:5173) │
+                  │  (Real-Time Incident & Traffic Dashboard)│
+                  └──────────────────────────────────────────┘
 ```
+
+### Windows Local Development Quickstart
+
+**Terminal 1 (Docker Server Stack):**
+```bash
+docker compose up -d
+```
+
+**Terminal 2 (Native Host NIDS Sensor):**
+```bash
+python run_sensor.py
+```
+
+* **React SOC Web Dashboard:** `http://localhost:5173`
+* **FastAPI REST API Service:** `http://localhost:8000`
+* **OpenAPI Documentation:** `http://localhost:8000/docs`
 
 ---
 

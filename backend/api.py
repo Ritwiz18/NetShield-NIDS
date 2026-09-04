@@ -93,6 +93,11 @@ class NIDSServiceManager:
         self._last_bytes_count: int = 0
         self._last_sample_time: float = time.time()
         
+        # Sensor Architecture Telemetry State
+        self.latest_sensor_data: Optional[Dict[str, Any]] = None
+        self.last_sensor_update_time: Optional[float] = None
+        self.sensor_timeout_seconds: float = 15.0
+        
         # Background collector thread
         self._collector_stop_event = threading.Event()
         self._collector_thread: Optional[threading.Thread] = None
@@ -202,6 +207,54 @@ class NIDSServiceManager:
                 with self._lock:
                     self.traffic_history.append(point)
 
+    def get_active_telemetry(self) -> Dict[str, Any]:
+        """Returns remote sensor telemetry if active, otherwise local engine snapshot."""
+        now = time.time()
+        with self._lock:
+            if self.latest_sensor_data and self.last_sensor_update_time and (now - self.last_sensor_update_time <= self.sensor_timeout_seconds):
+                return {
+                    "source": "remote_sensor",
+                    "data": self.latest_sensor_data
+                }
+
+        if self.engine:
+            snap = self.engine.get_snapshot()
+            sanitized_detections = [sanitize_detection_record(d) for d in snap.get("recent_detections", [])]
+            sanitized_incidents = [sanitize_incident_record(inc) for inc in snap.get("incidents_list", [])]
+
+            high_risk_count = sum(
+                1 for d in sanitized_detections
+                if d.get("Severity") in ["HIGH", "CRITICAL"] and not d.get("Is_Benign", True)
+            )
+            protocol_dist = calculate_protocol_breakdown(sanitized_detections)
+            top_ips = calculate_top_source_ips(sanitized_detections, limit=5)
+
+            return {
+                "source": "local_engine",
+                "data": {
+                    "state": snap.get("state", "STOPPED"),
+                    "interface": snap.get("interface", ""),
+                    "packets_captured": snap.get("packets_captured", 0),
+                    "active_flows": snap.get("active_flows", 0),
+                    "completed_flows": snap.get("completed_flows", 0),
+                    "classified_flows": snap.get("classified_flows", 0),
+                    "skipped_flows": snap.get("skipped_flows", 0),
+                    "normal_count": snap.get("normal_count", 0),
+                    "threat_count": snap.get("threat_count", 0),
+                    "review_count": snap.get("review_count", 0),
+                    "uncertain_count": snap.get("uncertain_count", 0),
+                    "high_risk_threat_count": high_risk_count,
+                    "attack_rate": round(snap.get("attack_rate", 0.0), 2),
+                    "attack_breakdown": snap.get("attack_breakdown", {}),
+                    "protocol_breakdown": protocol_dist,
+                    "recent_detections": sanitized_detections,
+                    "recent_incidents": sanitized_incidents,
+                    "top_source_ips": top_ips
+                }
+            }
+
+        return {"source": "idle", "data": {}}
+
 
 # Singleton Service Manager
 service_manager = NIDSServiceManager()
@@ -255,6 +308,28 @@ class APIResponse(BaseModel):
     status: str
     message: str
     data: Optional[Dict[str, Any]] = None
+
+class SensorDataPayload(BaseModel):
+    sensor_id: str = Field(..., description="Unique sensor instance identifier")
+    timestamp: str = Field(..., description="ISO 8601 timestamp of telemetry snapshot")
+    state: Optional[str] = "RUNNING"
+    interface: Optional[str] = ""
+    packets_captured: int = 0
+    active_flows: int = 0
+    completed_flows: int = 0
+    classified_flows: int = 0
+    skipped_flows: int = 0
+    normal_count: int = 0
+    threat_count: int = 0
+    review_count: int = 0
+    uncertain_count: int = 0
+    high_risk_threat_count: int = 0
+    attack_rate: float = 0.0
+    attack_breakdown: Dict[str, int] = {}
+    protocol_breakdown: Dict[str, int] = {}
+    recent_detections: List[Dict[str, Any]] = []
+    recent_incidents: List[Dict[str, Any]] = []
+    top_source_ips: List[Dict[str, Any]] = []
 
 
 # ── Serialization & Helper Utilities ─────────────────────────────────
@@ -389,12 +464,22 @@ def get_status(response: Response):
     if not healthy:
         response.status_code = status.HTTP_503_SERVICE_UNAVAILABLE
 
+    sensor_active = False
+    sensor_id = ""
+    if service_manager.last_sensor_update_time:
+        if (time.time() - service_manager.last_sensor_update_time) <= service_manager.sensor_timeout_seconds:
+            sensor_active = True
+            if service_manager.latest_sensor_data:
+                sensor_id = service_manager.latest_sensor_data.get("sensor_id", "")
+
     return {
         "status": "ok" if healthy else "error",
         "health": "healthy" if healthy else "unhealthy",
-        "monitoring_running": (engine_state == "RUNNING"),
-        "state": engine_state,
+        "monitoring_running": (engine_state == "RUNNING" or sensor_active),
+        "state": "RUNNING" if sensor_active else engine_state,
         "interface": interface_name,
+        "sensor_connected": sensor_active,
+        "sensor_id": sensor_id,
         "server_uptime_seconds": server_uptime,
         "monitor_uptime_seconds": monitor_uptime,
         "model_loaded": service_manager.model_loaded,
@@ -421,11 +506,15 @@ def get_dashboard():
     - Recent detections & incidents
     - Top source IPs by threat activity
     """
-    if not service_manager.engine:
+    active = service_manager.get_active_telemetry()
+    source = active.get("source")
+    data = active.get("data", {})
+
+    if source == "idle" or not data:
         return {
             "status": "idle",
             "state": "STOPPED",
-            "message": "Monitoring engine not initialized",
+            "message": "Monitoring engine not active and no sensor connected",
             "packets_captured": 0,
             "active_flows": 0,
             "completed_flows": 0,
@@ -443,39 +532,28 @@ def get_dashboard():
             "top_source_ips": []
         }
 
-    snap = service_manager.engine.get_snapshot()
-    sanitized_detections = [sanitize_detection_record(d) for d in snap.get("recent_detections", [])]
-    sanitized_incidents = [sanitize_incident_record(inc) for inc in snap.get("incidents_list", [])]
-
-    # Calculate high-risk threat count (HIGH or CRITICAL)
-    high_risk_count = sum(
-        1 for d in sanitized_detections
-        if d.get("Severity") in ["HIGH", "CRITICAL"] and not d.get("Is_Benign", True)
-    )
-
-    protocol_dist = calculate_protocol_breakdown(sanitized_detections)
-    top_ips = calculate_top_source_ips(sanitized_detections, limit=5)
-
     return {
         "status": "ok",
-        "state": snap.get("state", "STOPPED"),
-        "interface": snap.get("interface", ""),
-        "packets_captured": snap.get("packets_captured", 0),
-        "active_flows": snap.get("active_flows", 0),
-        "completed_flows": snap.get("completed_flows", 0),
-        "classified_flows": snap.get("classified_flows", 0),
-        "skipped_flows": snap.get("skipped_flows", 0),
-        "normal_count": snap.get("normal_count", 0),
-        "threat_count": snap.get("threat_count", 0),
-        "review_count": snap.get("review_count", 0),
-        "uncertain_count": snap.get("uncertain_count", 0),
-        "high_risk_threat_count": high_risk_count,
-        "attack_rate": round(snap.get("attack_rate", 0.0), 2),
-        "attack_breakdown": snap.get("attack_breakdown", {}),
-        "protocol_breakdown": protocol_dist,
-        "recent_detections": sanitized_detections[:20],
-        "recent_incidents": sanitized_incidents[:20],
-        "top_source_ips": top_ips
+        "state": data.get("state", "RUNNING" if source == "remote_sensor" else "STOPPED"),
+        "interface": data.get("interface", ""),
+        "sensor_id": data.get("sensor_id", "local"),
+        "sensor_mode": (source == "remote_sensor"),
+        "packets_captured": data.get("packets_captured", 0),
+        "active_flows": data.get("active_flows", 0),
+        "completed_flows": data.get("completed_flows", 0),
+        "classified_flows": data.get("classified_flows", 0),
+        "skipped_flows": data.get("skipped_flows", 0),
+        "normal_count": data.get("normal_count", 0),
+        "threat_count": data.get("threat_count", 0),
+        "review_count": data.get("review_count", 0),
+        "uncertain_count": data.get("uncertain_count", 0),
+        "high_risk_threat_count": data.get("high_risk_threat_count", 0),
+        "attack_rate": data.get("attack_rate", 0.0),
+        "attack_breakdown": data.get("attack_breakdown", {}),
+        "protocol_breakdown": data.get("protocol_breakdown", {"TCP": 0, "UDP": 0, "ICMP": 0, "Other": 0}),
+        "recent_detections": data.get("recent_detections", [])[:20],
+        "recent_incidents": data.get("recent_incidents", [])[:20],
+        "top_source_ips": data.get("top_source_ips", [])
     }
 
 
@@ -515,13 +593,11 @@ def get_traffic(limit: int = Query(60, ge=5, le=300, description="Number of rece
 @app.get("/api/threats", summary="Threat Analytics & Attack Breakdown")
 def get_threats():
     """
-    Returns threat analytics:
-    - Total confirmed threats, reviews, and uncertain flows
-    - Attack breakdown by classification type
-    - Severity distribution (LOW, MEDIUM, HIGH, CRITICAL)
-    - Recent threat events with confidence and explanations
+    Returns threat analytics from active local engine or remote sensor.
     """
-    if not service_manager.engine:
+    active = service_manager.get_active_telemetry()
+    data = active.get("data", {})
+    if not data:
         return {
             "status": "ok",
             "total_threats": 0,
@@ -533,19 +609,17 @@ def get_threats():
             "recent_threat_events": []
         }
 
-    snap = service_manager.engine.get_snapshot()
-    sanitized_detections = [sanitize_detection_record(d) for d in snap.get("recent_detections", [])]
+    sanitized_detections = data.get("recent_detections", [])
     threat_events = [d for d in sanitized_detections if not d.get("Is_Benign", True)]
-    
     sev_dist = calculate_severity_distribution(sanitized_detections)
 
     return {
         "status": "ok",
-        "total_threats": snap.get("threat_count", 0) + snap.get("review_count", 0),
-        "confirmed_threats": snap.get("threat_count", 0),
-        "review_threats": snap.get("review_count", 0),
-        "uncertain_threats": snap.get("uncertain_count", 0),
-        "threats_by_type": snap.get("attack_breakdown", {}),
+        "total_threats": data.get("threat_count", 0) + data.get("review_count", 0),
+        "confirmed_threats": data.get("threat_count", 0),
+        "review_threats": data.get("review_count", 0),
+        "uncertain_threats": data.get("uncertain_count", 0),
+        "threats_by_type": data.get("attack_breakdown", {}),
         "severity_distribution": sev_dist,
         "recent_threat_events": threat_events[:25]
     }
@@ -554,24 +628,18 @@ def get_threats():
 @app.get("/api/alerts", summary="Recent Incident Alerts")
 def get_alerts(limit: int = Query(25, ge=1, le=100, description="Max number of alerts to return")):
     """
-    Returns recent security incident alerts formatted for incident response views:
-    - Incident ID
-    - Timestamp
-    - 5-tuple: Source IP/Port, Destination IP/Port, Protocol
-    - Prediction / Attack Type
-    - Confidence & Confidence Level
-    - Severity & Operational Status
-    - Actionable Explanation from detection engine
+    Returns recent security incident alerts formatted for incident response views.
     """
-    if not service_manager.engine:
+    active = service_manager.get_active_telemetry()
+    data = active.get("data", {})
+    if not data:
         return {
             "status": "ok",
             "total_alerts": 0,
             "alerts": []
         }
 
-    snap = service_manager.engine.get_snapshot()
-    sanitized_incidents = [sanitize_incident_record(inc) for inc in snap.get("incidents_list", [])]
+    sanitized_incidents = data.get("recent_incidents", [])
 
     formatted_alerts = []
     for inc in sanitized_incidents[:limit]:
@@ -600,6 +668,48 @@ def get_alerts(limit: int = Query(25, ge=1, le=100, description="Max number of a
         "total_alerts": len(formatted_alerts),
         "alerts": formatted_alerts
     }
+
+
+@app.post("/api/sensor/data", summary="Receive Sensor Telemetry Data")
+def receive_sensor_data(payload: SensorDataPayload):
+    """
+    Receives real-time intrusion monitoring telemetry from a NetShield native sensor.
+    Updates the central in-memory state for web dashboards.
+    """
+    data_dict = payload.model_dump()
+    with service_manager._lock:
+        service_manager.latest_sensor_data = data_dict
+        service_manager.last_sensor_update_time = time.time()
+
+        # Update time-series traffic point
+        now = time.time()
+        dt = max(0.1, now - service_manager._last_sample_time)
+        delta_pkts = max(0, payload.packets_captured - service_manager._last_packet_count)
+        pps = round(delta_pkts / dt, 2)
+        
+        service_manager._last_packet_count = payload.packets_captured
+        service_manager._last_sample_time = now
+
+        point = {
+            "timestamp": datetime.now().strftime("%H:%M:%S"),
+            "timestamp_iso": datetime.now().isoformat(),
+            "timestamp_epoch": round(now, 3),
+            "packets": payload.packets_captured,
+            "packets_per_sec": pps,
+            "bytes": 0,
+            "bytes_per_sec": 0.0,
+            "active_flows": payload.active_flows,
+            "completed_flows": payload.completed_flows,
+            "classified_flows": payload.classified_flows,
+            "normal_count": payload.normal_count,
+            "threat_count": payload.threat_count,
+            "review_count": payload.review_count,
+            "uncertain_count": payload.uncertain_count
+        }
+        service_manager.traffic_history.append(point)
+
+    logger.info(f"Received sensor telemetry from '{payload.sensor_id}' (Packets: {payload.packets_captured}, Flows: {payload.classified_flows})")
+    return {"status": "ok", "message": f"Telemetry received from {payload.sensor_id}"}
 
 
 @app.get("/api/interfaces", summary="List Available Network Adapters")
