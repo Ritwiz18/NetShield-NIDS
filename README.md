@@ -412,68 +412,83 @@ FastAPI REST API (:8000) (backend/api.py)
 
 ---
 
-## 16. Docker Container Deployment
+## 16. Docker Container & Cloud VM Deployment
 
-NetShield-NIDS is fully containerized using Docker and Docker Compose for production deployment across Linux and Windows servers without manual environment configuration.
+NetShield-NIDS is fully containerized using Docker and Docker Compose for production deployment across Linux Cloud VMs (AWS EC2, Azure VM, GCP Compute Engine) and local environments.
 
-### Container Architecture
+### Local & Cloud Deployment Architecture
 ```
-                     Browser (Host User)
-                              │
-                              ▼
-                    ┌──────────────────┐
-                    │ React Dashboard  │
-                    │ Nginx Container  │
-                    │      :5173       │
-                    └────────┬─────────┘
-                             │
-                             ▼
-                    ┌──────────────────┐
-                    │ FastAPI Backend  │
-                    │ Python Container │
-                    │      :8000       │
-                    └────────┬─────────┘
-                             │
-                             ▼
-                    ┌──────────────────┐
-                    │ Net Shield NIDS  │
-                    │ Monitor Engine   │
-                    └────────┬─────────┘
-                             │
-                       ┌─────┴──────┐
-                       ▼            ▼
-                    Scapy          ML
-                    Capture       Detector
-                       │            │
-                       └─────┬──────┘
-                             ▼
-                         Detection
-                             │
-                             ▼
-                         Dashboard
+                                 Browser Client
+                                       │
+                         (HTTPS / HTTP Port 5173 / 80)
+                                       │
+                                       ▼
+                     ┌──────────────────────────────────┐
+                     │     Frontend Nginx Container     │
+                     │  (Production Static React Bundle)│
+                     └─────────────────┬────────────────┘
+                                       │
+                                (Reverse Proxy)
+                                       │
+                                       ▼
+                     ┌──────────────────────────────────┐
+                     │      FastAPI Backend Container   │
+                     │  (Uvicorn Production Server)     │
+                     └─────────────────┬────────────────┘
+                                       │
+                                       ▼
+                     ┌──────────────────────────────────┐
+                     │    RealtimeMonitorEngine         │
+                     └─────────────────┬────────────────┘
+                                       │
+                         ┌─────────────┴─────────────┐
+                         ▼                           ▼
+               Scapy Packet Capture            ML Detector
+             (cap_add: NET_ADMIN, NET_RAW)   (ExtraTreesClassifier)
 ```
 
-### Docker Quickstart
-
+### Local Docker Stack Execution
 ```bash
-# 1. Build and start all services in detached mode
+# 1. Build and launch the containerized production stack
 docker compose up --build -d
 
-# 2. View running container logs
+# 2. Monitor structured container logs
 docker compose logs -f
 
-# 3. Stop services
+# 3. Gracefully stop services
 docker compose down
 ```
 
-### Container Endpoints
-* **React SOC Web Dashboard:** `http://localhost:5173`
-* **FastAPI REST API Service:** `http://localhost:8000`
-* **Interactive OpenAPI Docs:** `http://localhost:8000/docs`
+### Cloud VM Deployment Prerequisites
+* **Cloud OS Target:** Ubuntu 22.04 LTS / Debian 12 / RHEL 9 Linux VM
+* **RAM Recommendation:** Minimum 4 GB RAM (ML model artifact `extra_trees_model.pkl` is ~1.47 GB; container limits reserved at 1.5 GB - 3 GB).
+* **Linux Kernel Capabilities:** Scapy live packet capture requires socket raw permissions. `docker-compose.yml` grants `cap_add: [NET_ADMIN, NET_RAW]`.
+* **Host Adapter Sniffing:** To capture physical network traffic visible to the Cloud VM interface (e.g., `eth0`), uncomment `network_mode: host` in `docker-compose.yml`.
 
-### Network Packet Capture Capabilities
-* **Linux Hosts:** Scapy live packet capture requires binding to raw host network sockets. `docker-compose.yml` configures `NET_ADMIN` and `NET_RAW` Linux capabilities (`cap_add`). For physical adapter sniffing on Linux servers, set `network_mode: host`.
-* **Windows Host Limitation:** On Windows Docker Desktop (WSL2), Docker containers run inside a hypervisor virtual machine. Live capture inside Windows containers sniffs the container virtual network. For native Windows physical Wi-Fi/Ethernet capture, use `run.bat` or native Python execution.
+### Environment Configuration (`.env.example`)
+Configuration settings are specified via environment variables. Copy `.env.example` to `.env`:
+```env
+BACKEND_PORT=8000
+FRONTEND_PORT=5173
+API_URL=http://localhost:8000
+VITE_API_URL=http://localhost:8000
+LOG_LEVEL=INFO
+HOST_INTERFACE=
+```
+
+### Persistent Data Policy
+* **Current Analytics:** NetShield-NIDS currently operates **in-memory** using bounded circular queues (`deque`) for real-time packet metrics, active flows, threat alerts, and time-series charts. This guarantees zero-latency, high-throughput flow classification without DB disk write overhead.
+* **Future Enterprise Auditing:** If multi-day historical threat audit logs, user multi-tenancy, or exported compliance reporting are required in future phases, **SQLite** (single-node VM) or **PostgreSQL** (distributed SOC) should be introduced.
+
+### Container Health Checks & Logging
+* **Health Check (`GET /api/status`):** Returns operational status. If the ML model fails to load or initialization errors occur, the endpoint responds with `HTTP 503 Service Unavailable`, marking the container `unhealthy`.
+* **Structured Logging:** Standard Python logging outputs timestamped events (`[INFO] [netshield] ...`) to stdout without logging raw packet payload contents for security and performance.
+
+### Graceful Shutdown Behavior
+* When `docker compose down` issues `SIGTERM`, FastAPI's `lifespan` context manager traps the signal, stops the background time-series collector, terminates Scapy packet sniffing threads, flushes remaining active flows, and exits cleanly without thread leaks.
+
+### Reverse Proxy & HTTPS Readiness
+* The frontend Nginx container proxies `/api/` traffic directly to the backend service. To enable HTTPS in cloud production, place an Nginx / Traefik / Caddy reverse proxy with Let's Encrypt SSL certificates in front of port 5173 / 80.
 
 ---
 

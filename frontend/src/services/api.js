@@ -3,7 +3,7 @@
  * Connects React Frontend to FastAPI Backend (:8000)
  */
 
-const BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+const BASE_URL = import.meta.env.VITE_API_URL !== undefined ? import.meta.env.VITE_API_URL : 'http://localhost:8000';
 
 async function fetchJSON(endpoint, options = {}) {
   const url = `${BASE_URL}${endpoint}`;

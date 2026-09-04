@@ -24,14 +24,26 @@ import threading
 from collections import deque, Counter
 from typing import Dict, List, Any, Optional
 from datetime import datetime
+import logging
 from contextlib import asynccontextmanager
 
 import joblib
 import numpy as np
 import pandas as pd
-from fastapi import FastAPI, HTTPException, Query, status
+from fastapi import FastAPI, HTTPException, Query, Response, status
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
+
+# ── Configure Container & Production Logging ─────────────────────────
+LOG_LEVEL_STR = os.getenv("LOG_LEVEL", "INFO").upper()
+log_level = getattr(logging, LOG_LEVEL_STR, logging.INFO)
+
+logging.basicConfig(
+    level=log_level,
+    format="%(asctime)s [%(levelname)s] [%(name)s] %(message)s",
+    handlers=[logging.StreamHandler(sys.stdout)]
+)
+logger = logging.getLogger("netshield")
 
 # ── Ensure Project Root is in sys.path ──────────────────────────────
 PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -92,18 +104,22 @@ class NIDSServiceManager:
         """Loads Extra Trees (or fallback Random Forest) model, scaler, and encoder."""
         with self._lock:
             model_path = ET_MODEL_PATH if os.path.exists(ET_MODEL_PATH) else RF_MODEL_PATH
+            logger.info(f"Loading ML detector artifacts from: {model_path}")
             
             if not os.path.exists(model_path):
                 self.model_loaded = False
                 self.model_error = f"Model artifact missing at {ET_MODEL_PATH} and {RF_MODEL_PATH}"
+                logger.error(self.model_error)
                 return
             if not os.path.exists(SCALER_PATH):
                 self.model_loaded = False
                 self.model_error = f"StandardScaler missing at {SCALER_PATH}"
+                logger.error(self.model_error)
                 return
             if not os.path.exists(ENCODER_PATH):
                 self.model_loaded = False
                 self.model_error = f"LabelEncoder missing at {ENCODER_PATH}"
+                logger.error(self.model_error)
                 return
 
             try:
@@ -122,21 +138,25 @@ class NIDSServiceManager:
                     active_timeout=5.0,
                     inactivity_timeout=3.0
                 )
+                logger.info(f"ML Model '{self.model_name}' loaded successfully. RealtimeMonitorEngine initialized.")
             except Exception as e:
                 self.model_loaded = False
                 self.model_error = f"Failed to initialize components: {str(e)}"
+                logger.error(self.model_error, exc_info=True)
 
     def start_traffic_collector(self):
         """Starts background periodic sampling for traffic time-series charts."""
         self._collector_stop_event.clear()
         self._collector_thread = threading.Thread(target=self._traffic_collector_loop, daemon=True)
         self._collector_thread.start()
+        logger.info("Background traffic statistics collector thread started.")
 
     def stop_traffic_collector(self):
         """Stops background traffic sampling."""
         self._collector_stop_event.set()
         if self._collector_thread and self._collector_thread.is_alive():
             self._collector_thread.join(timeout=1.5)
+        logger.info("Background traffic statistics collector thread stopped.")
 
     def _traffic_collector_loop(self):
         """Samples engine state once every second to build smooth frontend chart metrics."""
@@ -191,12 +211,16 @@ service_manager = NIDSServiceManager()
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # Startup: Start background traffic statistics collector
+    logger.info("Initializing NetShield-NIDS REST API Service...")
     service_manager.start_traffic_collector()
     yield
     # Shutdown: Stop traffic collector and cleanly stop monitoring if running
+    logger.info("Container shutdown signal (SIGTERM/SIGINT) received. Initiating graceful shutdown...")
     service_manager.stop_traffic_collector()
     if service_manager.engine and service_manager.engine.state == "RUNNING":
+        logger.info("Stopping Scapy live packet capture thread and flushing active flows...")
         service_manager.engine.stop_monitoring()
+    logger.info("NetShield-NIDS REST API Service stopped cleanly.")
 
 
 # ── FastAPI App Declaration ──────────────────────────────────────────
@@ -210,19 +234,13 @@ app = FastAPI(
 )
 
 # ── CORS Configuration ───────────────────────────────────────────────
-# Allows local development frontends (Vite, React, Next.js, etc.) to access the API safely
-origins = [
-    "http://localhost:3000",
-    "http://localhost:5173",
-    "http://127.0.0.1:3000",
-    "http://127.0.0.1:5173",
-    "http://localhost:8080",
-    "http://127.0.0.1:8080",
-]
+# Allows local development frontends (Vite, React, Next.js, etc.) and reverse proxies to access API
+cors_env = os.getenv("CORS_ORIGINS", "*")
+origins = [o.strip() for o in cors_env.split(",")] if cors_env != "*" else ["*"]
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=origins,
+    allow_origins=origins if origins != ["*"] else ["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -342,7 +360,7 @@ def root_info():
 
 
 @app.get("/api/status", summary="Engine Status & System Info")
-def get_status():
+def get_status(response: Response):
     """
     Returns the real-time operational status of NetShield NIDS:
     - Running state (STOPPED, STARTING, RUNNING, STOPPING, ERROR)
@@ -366,8 +384,14 @@ def get_status():
         if snap.get("error"):
             error_msg = snap.get("error")
 
+    # Health check condition: Model must be loaded and engine not in ERROR state
+    healthy = service_manager.model_loaded and (engine_state != "ERROR")
+    if not healthy:
+        response.status_code = status.HTTP_503_SERVICE_UNAVAILABLE
+
     return {
-        "status": "ok",
+        "status": "ok" if healthy else "error",
+        "health": "healthy" if healthy else "unhealthy",
         "monitoring_running": (engine_state == "RUNNING"),
         "state": engine_state,
         "interface": interface_name,
@@ -655,12 +679,14 @@ def start_monitor(req: Optional[MonitorStartRequest] = None):
     success = service_manager.engine.start_monitoring(iface_obj=target_obj, iface_name=target_name)
     if not success:
         err = service_manager.engine.error_message or "Failed to start Scapy capture worker"
+        logger.error(f"Failed to start live monitoring on interface '{target_name}': {err}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to start monitoring on '{target_name}': {err}"
         )
 
     service_manager.monitor_start_time = time.time()
+    logger.info(f"Live NIDS monitoring started successfully on adapter '{target_name}'.")
 
     return {
         "status": "started",
@@ -670,6 +696,7 @@ def start_monitor(req: Optional[MonitorStartRequest] = None):
     }
 
 
+@app.get("/api/monitor/stop", summary="Stop Live Monitoring Engine (GET compatibility)")
 @app.post("/api/monitor/stop", summary="Stop Live Monitoring Engine")
 def stop_monitor():
     """
@@ -682,8 +709,10 @@ def stop_monitor():
     if service_manager.engine.state == "STOPPED":
         return {"status": "already_stopped", "message": "Monitoring is already stopped", "state": "STOPPED"}
 
+    logger.info("Stopping live NIDS monitoring engine...")
     service_manager.engine.stop_monitoring()
     service_manager.monitor_start_time = None
+    logger.info("Live NIDS monitoring stopped. Active flows flushed.")
 
     return {
         "status": "stopped",
