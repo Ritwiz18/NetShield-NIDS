@@ -9,11 +9,16 @@ from sklearn.ensemble import ExtraTreesClassifier
 import joblib
 import matplotlib.pyplot as plt
 from imblearn.over_sampling import SMOTE
+from pathlib import Path
+
+# Dynamically compute project root from this script's location
+SCRIPT_DIR = Path(__file__).resolve().parent          # .../src/ml
+PROJECT_ROOT = SCRIPT_DIR.parent.parent                # project root
 
 # ==================================================
 # STEP 10.1: LOAD AND PREPARE DATA
 # ==================================================
-DATASET_PATH = r"D:\\7th sem project\\data\\processed\\cleaned_dataset.csv"
+DATASET_PATH = PROJECT_ROOT / "data" / "processed" / "cleaned_dataset.csv"
 df = pd.read_csv(DATASET_PATH)
 
 # Separate features and target
@@ -67,7 +72,7 @@ X_test_scaled = scaler.transform(X_test)
 # ==================================================
 # STEP 10.2: LOAD EXISTING RANDOM FOREST
 # ==================================================
-rf_model_path = r"D:\\7th sem project\\models\\random_forest_model.pkl"
+rf_model_path = PROJECT_ROOT / "models" / "random_forest_model.pkl"
 if not os.path.exists(rf_model_path):
     raise FileNotFoundError(f"Random Forest model not found at {rf_model_path}")
 random_forest = joblib.load(rf_model_path)
@@ -103,7 +108,7 @@ extra_trees = ExtraTreesClassifier(
 )
 extra_trees.fit(X_train_resampled_scaled, y_train_resampled)
 # Save Extra Trees model
-extra_model_path = r"D:\7th sem project\extra_trees_model.pkl"
+extra_model_path = PROJECT_ROOT / "extra_trees_model.pkl"
 joblib.dump(extra_trees, extra_model_path)
 
 # Predict with Extra Trees
@@ -126,7 +131,7 @@ plt.yticks(np.arange(len(class_names)), class_names)
 plt.ylabel('True label')
 plt.xlabel('Predicted label')
 plt.tight_layout()
-conf_mat_path = r"D:\7th sem project\results\extra_trees_confusion_matrix.png"
+conf_mat_path = PROJECT_ROOT / "results" / "extra_trees_confusion_matrix.png"
 plt.savefig(conf_mat_path)
 plt.close()
 
@@ -145,7 +150,7 @@ comparison_df = pd.DataFrame({
     'Balanced Accuracy': [rf_metrics['balanced_accuracy'], et_metrics['balanced_accuracy']]
 })
 
-comparison_csv_path = r"D:\7th sem project\results\model_comparison.csv"
+comparison_csv_path = PROJECT_ROOT / "results" / "model_comparison.csv"
 comparison_df.to_csv(comparison_csv_path, index=False)
 
 # ==================================================
@@ -164,7 +169,7 @@ ax.set_xticks(indices + bar_width)
 ax.set_xticklabels(comparison_df['Model'])
 ax.legend()
 plt.tight_layout()
-visual_path = r"D:\7th sem project\results\model_comparison.png"
+visual_path = PROJECT_ROOT / "results" / "model_comparison.png"
 plt.savefig(visual_path)
 plt.close()
 

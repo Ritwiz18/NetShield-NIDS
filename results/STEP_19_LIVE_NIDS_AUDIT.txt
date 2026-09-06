@@ -2,7 +2,7 @@
 STEP 19: REAL LIVE NIDS PIPELINE AUDIT REPORT
 ==================================================
 Project: NetShield-NIDS
-Workspace: D:\NetShield-NIDS
+Workspace: <project-root>
 Audit Date: 2026-08-29
 
 --------------------------------------------------

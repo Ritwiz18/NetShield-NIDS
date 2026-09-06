@@ -1,7 +1,7 @@
 ======================================================================
 NIDS INFERENCE SYSTEM — STEP 13 END-TO-END TEST REPORT
 ======================================================================
-Project      : D:\7th sem project
+Project      : <project-root>
 Model        : Extra Trees
 Features     : 53
 Classes      : 15
@@ -36,7 +36,7 @@ TEST: TEST 2 — Batch Mode
 Result: PASS
 
   [OK]   Script exited with code 0 (success)
-  [OK]   batch_predictions.csv created at: D:\7th sem project\inference\batch_predictions.csv
+  [OK]   batch_predictions.csv created at: <project-root>\inference\batch_predictions.csv
   [OK]   Rows predicted: 5
          Columns: ['True_Label', 'Predicted_Class', 'Predicted_Label', 'Confidence', 'P(BENIGN)', 'P(Bot)', 'P(DDoS)', 'P(DoS GoldenEye)', 'P(DoS Hulk)', 'P(DoS Slowhttptest)', 'P(DoS slowloris)', 'P(FTP-Patator)', 'P(Heartbleed)', 'P(Infiltration)', 'P(PortScan)', 'P(SSH-Patator)', 'P(Web Attack � Brute Force)', 'P(Web Attack � Sql Injection)', 'P(Web Attack � XSS)', 'Match']
   [OK]   Predicted_Label column present
@@ -53,27 +53,27 @@ Result: PASS
            Confidence: 0.9450 (94.50%)
   [OK]   No NaN or Inf in Confidence values
          Accuracy vs true labels: 0.2000 (20.00%)
-  [OK]   Results also saved to: D:\7th sem project\results\inference_batch_results.csv
+  [OK]   Results also saved to: <project-root>\results\inference_batch_results.csv
 
 ============================================================
 TEST: TEST 3 — Invalid Input Handling
 Result: PASS
 
-         Temporary invalid CSV created: D:\7th sem project\inference\_tmp_invalid_test.csv (10 columns, not 53)
+         Temporary invalid CSV created: <project-root>\inference\_tmp_invalid_test.csv (10 columns, not 53)
   [OK]   Script correctly returned non-zero exit code (1) for invalid input
   [OK]   Clear error message found in script output
          Error message (excerpt): Traceback (most recent call last):
-  File "D:\7th sem project\inference\nids_inference.py", line 470, in <module>
+  File "<project-root>\inference\nids_inference.py", line 470, in <module>
     main()
     ~~~~^^
-  File "D:\7th sem project\inference\nids_inference.py", line 430, in main
+  File "<project-root>\inference\nids_inference.py", line 430, in main
     mode_batch(model, scaler, encoder, model_name, args.input)
     ~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "D:\7th sem project\inference\nids_inference.py", line 339, in mode_batch
+  File "<project-root>\inference\nids_inference.py", line 339, in mode_batch
     X_scaled = preprocess(df_features, scaler)
-  File "D:\7th sem project\inferenc
+  File "<project-root>\inferenc
   [OK]   No uncontrolled exception (AttributeError/IndexError/KeyError) detected
-  [OK]   Temporary invalid CSV removed: D:\7th sem project\inference\_tmp_invalid_test.csv
+  [OK]   Temporary invalid CSV removed: <project-root>\inference\_tmp_invalid_test.csv
 
 ============================================================
 TEST: TEST 4 — Model Consistency
@@ -81,16 +81,16 @@ Result: PASS
 
   [OK]   final_model.txt reads: 'Extra Trees'
   [OK]   Selected model is 'Extra Trees' as expected
-  [OK]   Model file exists: D:\7th sem project\extra_trees_model.pkl
+  [OK]   Model file exists: <project-root>\extra_trees_model.pkl
   [OK]   Model loaded successfully: ExtraTreesClassifier
   [OK]   Model expects 53 features
   [OK]   Feature count matches expected: 53
   [OK]   Model supports predict_proba() (confidence scores available)
-  [OK]   scaler.pkl exists: D:\7th sem project\models\scaler.pkl
+  [OK]   scaler.pkl exists: <project-root>\models\scaler.pkl
   [OK]   Scaler loaded: StandardScaler
   [OK]   Scaler has .transform() method
   [OK]   Scaler fitted on 53 features
-  [OK]   label_encoder.pkl exists: D:\7th sem project\models\label_encoder.pkl
+  [OK]   label_encoder.pkl exists: <project-root>\models\label_encoder.pkl
   [OK]   Encoder loaded: LabelEncoder
   [OK]   Encoder classes (15): ['BENIGN', 'Bot', 'DDoS', 'DoS GoldenEye', 'DoS Hulk', 'DoS Slowhttptest', 'DoS slowloris', 'FTP-Patator', 'Heartbleed', 'Infiltration', 'PortScan', 'SSH-Patator', 'Web Attack ? Brute Force', 'Web Attack ? Sql Injection', 'Web Attack ? XSS']
   [OK]   Encoder has 15 classes as expected

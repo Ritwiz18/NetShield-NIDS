@@ -7,7 +7,9 @@ import joblib
 from pathlib import Path
 
 # ==== Configuration ====
-PROJECT_ROOT = Path(r"D:\\7th sem project")
+# Dynamically compute project root from this script's location
+SCRIPT_DIR = Path(__file__).resolve().parent
+PROJECT_ROOT = SCRIPT_DIR
 RESULTS_DIR = PROJECT_ROOT / "results"
 DATASET_PATH = PROJECT_ROOT / "cleaned_dataset.csv"
 RF_MODEL_PATH = PROJECT_ROOT / "random_forest_model.pkl"

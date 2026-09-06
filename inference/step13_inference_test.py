@@ -4,7 +4,7 @@ STEP 13: END-TO-END NIDS INFERENCE TEST
 ==================================================
 Runs all 5 validation tests against the STEP 12
 inference pipeline and writes a full report to:
-  D:\\7th sem project\\results\\STEP_13_INFERENCE_TEST.txt
+  <project-root>/results/STEP_13_INFERENCE_TEST.txt
 
 No model training. No SMOTE. No preprocessing changes.
 """
@@ -17,6 +17,7 @@ import csv
 import io
 import traceback
 import warnings
+from pathlib import Path
 warnings.filterwarnings("ignore")
 
 import numpy as np
@@ -24,20 +25,20 @@ import pandas as pd
 import joblib
 
 # ─────────────────────────────────────────────────────────────
-# PATHS
+# PATHS (dynamically computed from script location)
 # ─────────────────────────────────────────────────────────────
-PROJECT_ROOT    = r"D:\7th sem project"
-RESULTS_DIR     = os.path.join(PROJECT_ROOT, "results")
-INFERENCE_DIR   = os.path.join(PROJECT_ROOT, "inference")
-MODELS_DIR      = os.path.join(PROJECT_ROOT, "models")
+SCRIPT_DIR = Path(__file__).resolve().parent          # .../inference
+PROJECT_ROOT = SCRIPT_DIR.parent                       # project root
+RESULTS_DIR   = PROJECT_ROOT / "results"
+MODELS_DIR   = PROJECT_ROOT / "models"
 
-INFERENCE_SCRIPT   = os.path.join(INFERENCE_DIR, "nids_inference.py")
-SAMPLE_BATCH       = os.path.join(INFERENCE_DIR, "sample_batch.csv")
-FINAL_MODEL_TXT    = os.path.join(RESULTS_DIR,   "final_model.txt")
-ET_MODEL_PATH      = os.path.join(PROJECT_ROOT,  "extra_trees_model.pkl")
-RF_MODEL_PATH      = os.path.join(MODELS_DIR,    "random_forest_model.pkl")
-SCALER_PATH        = os.path.join(MODELS_DIR,    "scaler.pkl")
-ENCODER_PATH       = os.path.join(MODELS_DIR,    "label_encoder.pkl")
+INFERENCE_SCRIPT = SCRIPT_DIR / "nids_inference.py"
+SAMPLE_BATCH     = SCRIPT_DIR / "sample_batch.csv"
+FINAL_MODEL_TXT  = RESULTS_DIR  / "final_model.txt"
+ET_MODEL_PATH    = PROJECT_ROOT / "extra_trees_model.pkl"
+RF_MODEL_PATH    = MODELS_DIR   / "random_forest_model.pkl"
+SCALER_PATH      = MODELS_DIR   / "scaler.pkl"
+ENCODER_PATH     = MODELS_DIR   / "label_encoder.pkl"
 DATASET_PATH       = os.path.join(PROJECT_ROOT,  "data", "processed", "cleaned_dataset.csv")
 BATCH_OUT_PATH     = os.path.join(RESULTS_DIR,   "inference_batch_results.csv")
 REPORT_PATH        = os.path.join(RESULTS_DIR,   "STEP_13_INFERENCE_TEST.txt")
@@ -519,7 +520,7 @@ def write_report(results: list, batch_df=None):
     lines.append("=" * 70)
     lines.append("NIDS INFERENCE SYSTEM — STEP 13 END-TO-END TEST REPORT")
     lines.append("=" * 70)
-    lines.append(f"Project      : D:\\7th sem project")
+    lines.append(f"Project      : {PROJECT_ROOT}")
     lines.append(f"Model        : Extra Trees")
     lines.append(f"Features     : 53")
     lines.append(f"Classes      : 15")

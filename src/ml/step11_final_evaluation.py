@@ -9,13 +9,18 @@ from sklearn.ensemble import RandomForestClassifier, ExtraTreesClassifier
 import joblib
 import matplotlib.pyplot as plt
 from imblearn.over_sampling import SMOTE
+from pathlib import Path
+
+# Dynamically compute project root from this script's location
+SCRIPT_DIR = Path(__file__).resolve().parent          # .../src/ml
+PROJECT_ROOT = SCRIPT_DIR.parent.parent                # project root
 
 # ------------------------------------------------------------
 # STEP 11: FINAL MODEL SELECTION & DETAILED EVALUATION
 # ------------------------------------------------------------
 
 # ==== 11.1 Load data and preprocessing configuration ====
-DATASET_PATH = r"D:\\7th sem project\\cleaned_dataset.csv"
+DATASET_PATH = PROJECT_ROOT / "data" / "processed" / "cleaned_dataset.csv"
 if not os.path.exists(DATASET_PATH):
     raise FileNotFoundError(f"Dataset not found at {DATASET_PATH}")
 
@@ -72,8 +77,8 @@ print("X_test.shape:", X_test_scaled.shape)
 print("y_test.shape:", y_test.shape)
 
 # ==== 11.1 Load existing models ====
-rf_path = r"D:\\7th sem project\\random_forest_model.pkl"
-et_path = r"D:\\7th sem project\\extra_trees_model.pkl"
+rf_path = PROJECT_ROOT / "models" / "random_forest_model.pkl"
+et_path = PROJECT_ROOT / "extra_trees_model.pkl"
 if not os.path.exists(rf_path):
     raise FileNotFoundError(f"Random Forest model not found at {rf_path}")
 if not os.path.exists(et_path):
@@ -139,7 +144,7 @@ print("\n=== Overall Metrics Comparison ===")
 print(comparison_df.to_string(index=False))
 
 # Save overall comparison CSV
-results_dir = r"D:\\7th sem project\\results"
+results_dir = PROJECT_ROOT / "results"
 os.makedirs(results_dir, exist_ok=True)
 final_cmp_path = os.path.join(results_dir, "final_model_comparison.csv")
 comparison_df.to_csv(final_cmp_path, index=False)

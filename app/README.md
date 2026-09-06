@@ -17,7 +17,8 @@ This interactive dashboard classifies network flows in real time or via batch CS
 1. Open PowerShell or Command Prompt.
 2. Navigate to the project root directory:
 ```bash
-cd /d "D:\7th sem project"
+cd /d "<project-root>"
+# e.g., cd /d "C:\NetShield-NIDS"
 ```
 3. Launch the Streamlit dashboard:
 ```bash

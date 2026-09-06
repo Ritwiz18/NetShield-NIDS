@@ -6,13 +6,13 @@ Original Error:
 No module named 'live'
 
 Root Cause:
-Streamlit adds the SCRIPT directory (D:\NetShield-NIDS\app\) to
+Streamlit adds the SCRIPT directory (<project-root>\app\) to
 sys.path when launching with:
 
     streamlit run app\app.py
 
 It does NOT automatically add the project root
-(D:\NetShield-NIDS\). The live/ package lives at the project
+(<project-root>\). The live/ package lives at the project
 root, so Python could not find it from inside the app/ context.
 
 Additionally, the previous except clause was:
@@ -40,7 +40,7 @@ Added explicit project root injection before all live imports:
         sys.path.insert(0, _PROJECT_ROOT)
 
 This uses __file__ (the absolute path of app.py) to compute
-D:\NetShield-NIDS regardless of how or from where Streamlit
+<project-root> regardless of how or from where Streamlit
 is launched.
 
 ==================================================

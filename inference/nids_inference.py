@@ -19,15 +19,15 @@ Usage
 3. Demo with a synthetic sample from the training dataset:
        python nids_inference.py --mode demo
 
-Artefact paths (adjust only if you moved files)
+Artefact paths (relative to project root)
 ------------------------------------------------
-MODEL_DIR  : D:\\7th sem project\\models\\
-RESULTS_DIR: D:\\7th sem project\\results\\
-ET_MODEL   : D:\\7th sem project\\extra_trees_model.pkl   (root — as trained)
-RF_MODEL   : D:\\7th sem project\\models\\random_forest_model.pkl
-SCALER     : D:\\7th sem project\\models\\scaler.pkl
-ENCODER    : D:\\7th sem project\\models\\label_encoder.pkl
-FINAL_SEL  : D:\\7th sem project\\results\\final_model.txt
+MODEL_DIR  : <project-root>/models/
+RESULTS_DIR: <project-root>/results/
+ET_MODEL   : <project-root>/extra_trees_model.pkl   (root — as trained)
+RF_MODEL   : <project-root>/models/random_forest_model.pkl
+SCALER     : <project-root>/models/scaler.pkl
+ENCODER    : <project-root>/models/label_encoder.pkl
+FINAL_SEL  : <project-root>/results/final_model.txt
 """
 
 import os
@@ -37,24 +37,26 @@ import warnings
 import numpy as np
 import pandas as pd
 import joblib
+from pathlib import Path
 
 warnings.filterwarnings("ignore")
 
 # ─────────────────────────────────────────────────────────────
-# PATHS
+# PATHS (dynamically computed from script location)
 # ─────────────────────────────────────────────────────────────
-PROJECT_ROOT = r"D:\7th sem project"
-MODELS_DIR   = os.path.join(PROJECT_ROOT, "models")
-RESULTS_DIR  = os.path.join(PROJECT_ROOT, "results")
+SCRIPT_DIR = Path(__file__).resolve().parent          # .../inference
+PROJECT_ROOT = SCRIPT_DIR.parent                       # project root
+MODELS_DIR   = PROJECT_ROOT / "models"
+RESULTS_DIR  = PROJECT_ROOT / "results"
 
-FINAL_MODEL_TXT = os.path.join(RESULTS_DIR, "final_model.txt")
+FINAL_MODEL_TXT = RESULTS_DIR / "final_model.txt"
 
 MODEL_PATHS = {
-    "Extra Trees"   : os.path.join(PROJECT_ROOT, "extra_trees_model.pkl"),
-    "Random Forest" : os.path.join(MODELS_DIR,   "random_forest_model.pkl"),
+    "Extra Trees"   : PROJECT_ROOT / "extra_trees_model.pkl",
+    "Random Forest" : MODELS_DIR   / "random_forest_model.pkl",
 }
-SCALER_PATH  = os.path.join(MODELS_DIR, "scaler.pkl")
-ENCODER_PATH = os.path.join(MODELS_DIR, "label_encoder.pkl")
+SCALER_PATH  = MODELS_DIR / "scaler.pkl"
+ENCODER_PATH = MODELS_DIR / "label_encoder.pkl"
 
 # ─────────────────────────────────────────────────────────────
 # EXACT 53 FEATURES — in the same column order as cleaned_dataset.csv
@@ -442,10 +444,10 @@ Examples:
     print("  - 3 modes: demo / single-flow / batch CSV")
     print()
     print("Files created:")
-    print("  D:\\7th sem project\\inference\\nids_inference.py")
+    print(f"  {__file__}")
     print()
     print("Files reused:")
-    print(f"  D:\\7th sem project\\results\\final_model.txt    -> {model_name}")
+    print(f"  {FINAL_MODEL_TXT}    -> {model_name}")
     print(f"  {MODEL_PATHS[model_name]}")
     print(f"  {SCALER_PATH}")
     print(f"  {ENCODER_PATH}")

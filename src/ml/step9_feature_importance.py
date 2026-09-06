@@ -3,19 +3,24 @@ import pandas as pd
 import numpy as np
 import joblib
 import matplotlib.pyplot as plt
+from pathlib import Path
 
 def main():
     print("==================================================")
     print("STEP 9: RANDOM FOREST FEATURE IMPORTANCE ANALYSIS")
     print("==================================================")
 
-    # Paths (using the newly restructured directories)
-    model_path = r"D:\7th sem project\models\random_forest_model.pkl"
-    dataset_path = r"D:\7th sem project\data\processed\cleaned_dataset.csv"
-    results_dir = r"D:\7th sem project\results"
-    
-    csv_out_path = os.path.join(results_dir, "feature_importance.csv")
-    img_out_path = os.path.join(results_dir, "feature_importance_top20.png")
+    # Dynamically compute project root from this script's location
+    SCRIPT_DIR = Path(__file__).resolve().parent          # .../src/ml
+    PROJECT_ROOT = SCRIPT_DIR.parent.parent                # project root
+
+    # Paths
+    model_path = PROJECT_ROOT / "models" / "random_forest_model.pkl"
+    dataset_path = PROJECT_ROOT / "data" / "processed" / "cleaned_dataset.csv"
+    results_dir = PROJECT_ROOT / "results"
+
+    csv_out_path = results_dir / "feature_importance.csv"
+    img_out_path = results_dir / "feature_importance_top20.png"
 
     # 1. Load model
     if not os.path.exists(model_path):

@@ -30,7 +30,7 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import streamlit as st
 
-# ── Ensure the project root (D:\NetShield-NIDS) is on sys.path ──────────────
+# ── Ensure the project root is on sys.path ──────────────
 # Streamlit adds the *script* directory (app/) to sys.path, not the project root.
 # The live/ package lives at the project root, so we add it explicitly.
 _PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))

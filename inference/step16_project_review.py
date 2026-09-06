@@ -4,7 +4,7 @@ STEP 16: COMPLETE PROJECT REVIEW & QUALITY AUDIT
 ==================================================
 Reads, audits, and checks the consistency of all project
 components without modifying any training code or model files.
-Generates: results/STEP_16_PROJECT_REVIEW.txt
+Generates: <project-root>/results/STEP_16_PROJECT_REVIEW.txt
 """
 
 import os
@@ -13,16 +13,18 @@ import re
 import joblib
 import pandas as pd
 import numpy as np
+from pathlib import Path
 
-PROJECT_ROOT = r"D:\7th sem project"
-RESULTS_DIR  = os.path.join(PROJECT_ROOT, "results")
-MODELS_DIR   = os.path.join(PROJECT_ROOT, "models")
-APP_DIR      = os.path.join(PROJECT_ROOT, "app")
-INF_DIR      = os.path.join(PROJECT_ROOT, "inference")
-DATA_DIR     = os.path.join(PROJECT_ROOT, "data", "processed")
-SRC_DIR      = os.path.join(PROJECT_ROOT, "src")
+SCRIPT_DIR    = Path(__file__).resolve().parent          # .../inference
+PROJECT_ROOT  = SCRIPT_DIR.parent                         # project root
+RESULTS_DIR   = PROJECT_ROOT / "results"
+MODELS_DIR    = PROJECT_ROOT / "models"
+APP_DIR       = PROJECT_ROOT / "app"
+INF_DIR       = SCRIPT_DIR                                # alias
+DATA_DIR      = PROJECT_ROOT / "data" / "processed"
+SRC_DIR       = PROJECT_ROOT / "src"
 
-OUT_REVIEW_TXT = os.path.join(RESULTS_DIR, "STEP_16_PROJECT_REVIEW.txt")
+OUT_REVIEW_TXT = RESULTS_DIR / "STEP_16_PROJECT_REVIEW.txt"
 
 # Reference 53 features
 FEATURE_NAMES = [

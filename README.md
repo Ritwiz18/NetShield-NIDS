@@ -9,7 +9,8 @@ A production-grade, end-to-end Machine Learning based Network Intrusion Detectio
 1. **Open Terminal / PowerShell**
 2. **Navigate to the Project Directory:**
    ```bash
-   cd /d "D:\7th sem project"
+   cd /d "<project-root>"
+   # e.g., cd /d "C:\NetShield-NIDS"
    ```
 3. **Install Dependencies:**
    ```bash
@@ -251,7 +252,7 @@ The model strictly expects **53 continuous/discrete numeric features** in exact 
 
 ## 16. Project Directory Structure
 ```
-D:\7th sem project\
+<project-root>\
 ├── app\
 │   ├── app.py                          # Streamlit Web Application Dashboard
 │   └── README.md                       # Application Usage Guide

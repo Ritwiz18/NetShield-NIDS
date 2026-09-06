@@ -21,19 +21,21 @@ import tempfile
 import joblib
 import numpy as np
 import pandas as pd
+from pathlib import Path
 
-PROJECT_ROOT = r"D:\7th sem project"
-APP_DIR      = os.path.join(PROJECT_ROOT, "app")
-MODELS_DIR   = os.path.join(PROJECT_ROOT, "models")
-INF_DIR      = os.path.join(PROJECT_ROOT, "inference")
-RESULTS_DIR  = os.path.join(PROJECT_ROOT, "results")
+SCRIPT_DIR    = Path(__file__).resolve().parent          # .../inference
+PROJECT_ROOT  = SCRIPT_DIR.parent                         # project root
+APP_DIR       = PROJECT_ROOT / "app"
+MODELS_DIR   = PROJECT_ROOT / "models"
+INF_DIR       = SCRIPT_DIR                                # alias
+RESULTS_DIR   = PROJECT_ROOT / "results"
 
-ET_MODEL_PATH = os.path.join(PROJECT_ROOT, "extra_trees_model.pkl")
-SCALER_PATH   = os.path.join(MODELS_DIR,   "scaler.pkl")
-ENCODER_PATH  = os.path.join(MODELS_DIR,   "label_encoder.pkl")
-SAMPLE_CSV    = os.path.join(INF_DIR,      "sample_batch.csv")
+ET_MODEL_PATH = PROJECT_ROOT / "extra_trees_model.pkl"
+SCALER_PATH   = MODELS_DIR   / "scaler.pkl"
+ENCODER_PATH  = MODELS_DIR   / "label_encoder.pkl"
+SAMPLE_CSV    = INF_DIR      / "sample_batch.csv"
 
-OUT_TEST_TXT  = os.path.join(RESULTS_DIR,  "STEP_17_BATCH_TEST.txt")
+OUT_TEST_TXT  = RESULTS_DIR  / "STEP_17_BATCH_TEST.txt"
 
 FEATURE_NAMES = [
     "Destination Port", "Flow Duration", "Total Fwd Packets",

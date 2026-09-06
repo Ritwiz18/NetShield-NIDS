@@ -4,6 +4,7 @@ import time
 import joblib
 import matplotlib.pyplot as plt
 import seaborn as sns
+from pathlib import Path
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import StandardScaler, LabelEncoder
 from sklearn.utils.class_weight import compute_class_weight
@@ -16,6 +17,10 @@ from sklearn.metrics import (
 )
 import warnings
 warnings.filterwarnings('ignore')
+
+# Dynamically compute project root from this script's location
+SCRIPT_DIR = Path(__file__).resolve().parent          # .../src/ml
+PROJECT_ROOT = SCRIPT_DIR.parent.parent                # project root
 
 try:
     import xgboost as xgb
@@ -33,7 +38,7 @@ except ImportError:
 def main():
     print("=== NIDS Machine Learning Pipeline ===")
     
-    DATASET_PATH = r"D:\7th sem project\data\processed\cleaned_dataset.csv"
+    DATASET_PATH = PROJECT_ROOT / "data" / "processed" / "cleaned_dataset.csv"
 
     try:
         df = pd.read_csv(DATASET_PATH)
@@ -294,7 +299,7 @@ print("NIDS MACHINE LEARNING PIPELINE")
 print("=" * 50)
 
 # Load cleaned dataset
-DATASET_PATH = r"D:\7th sem project\data\processed\cleaned_dataset.csv"
+DATASET_PATH = PROJECT_ROOT / "data" / "processed" / "cleaned_dataset.csv"
 
 print("\nLoading dataset...")
 df = pd.read_csv(DATASET_PATH)
@@ -631,9 +636,9 @@ print("\nGenerating predictions on test set...")
 y_pred = rf_model.predict(X_test_scaled)
 
 print("\nSaving the model and label encoder...")
-joblib.dump(rf_model, r"D:\7th sem project\models\random_forest_model.pkl")
-joblib.dump(label_encoder, r"D:\7th sem project\models\label_encoder.pkl")
-joblib.dump(scaler, r"D:\7th sem project\models\scaler.pkl")
+joblib.dump(rf_model, PROJECT_ROOT / "models" / "random_forest_model.pkl")
+joblib.dump(label_encoder, PROJECT_ROOT / "models" / "label_encoder.pkl")
+joblib.dump(scaler, PROJECT_ROOT / "models" / "scaler.pkl")
 
 print("\n" + "=" * 40)
 print("STEP 6 COMPLETED")
@@ -722,7 +727,7 @@ plt.ylabel('True Class')
 plt.xlabel('Predicted Class')
 plt.xticks(rotation=45, ha='right')
 plt.tight_layout()
-plt.savefig(r"D:\7th sem project\results\confusion_matrix.png", dpi=300)
+plt.savefig(PROJECT_ROOT / "results" / "confusion_matrix.png", dpi=300)
 plt.close()
 
 print("\n" + "=" * 40)
@@ -742,7 +747,7 @@ import os
 import pandas as pd
 import numpy as np
 
-results_dir = r"D:\7th sem project\results"
+results_dir = PROJECT_ROOT / "results"
 os.makedirs(results_dir, exist_ok=True)
 
 print("\n" + "=" * 40)
@@ -785,7 +790,7 @@ metrics_df = pd.DataFrame({
     ]
 })
 
-metrics_path = r"D:\7th sem project\results\model_metrics.csv"
+metrics_path = PROJECT_ROOT / "results" / "model_metrics.csv"
 metrics_df.to_csv(metrics_path, index=False)
 
 # =========================================================
@@ -802,7 +807,7 @@ report = classification_report(
 
 report_df = pd.DataFrame(report).transpose()
 
-report_path = r"D:\7th sem project\results\classification_report.csv"
+report_path = PROJECT_ROOT / "results" / "classification_report.csv"
 report_df.to_csv(report_path, index=True)
 
 # =========================================================
@@ -817,7 +822,7 @@ cm_df = pd.DataFrame(
     columns=label_encoder.classes_
 )
 
-cm_path = r"D:\7th sem project\results\confusion_matrix.csv"
+cm_path = PROJECT_ROOT / "results" / "confusion_matrix.csv"
 cm_df.to_csv(cm_path, index=True)
 
 # =========================================================

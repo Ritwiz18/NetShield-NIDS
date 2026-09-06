@@ -2,6 +2,11 @@ import pandas as pd
 import numpy as np
 import glob
 import os
+from pathlib import Path
+
+# Dynamically compute project root from this script's location
+SCRIPT_DIR = Path(__file__).resolve().parent          # .../src/preprocessing
+PROJECT_ROOT = SCRIPT_DIR.parent.parent                # project root
 
 
 # =========================================================
@@ -473,7 +478,7 @@ except UnicodeEncodeError:
 # SAVE CLEANED DATASET
 # =========================================================
 
-dataset_path = r"D:\7th sem project\data\processed\cleaned_dataset.csv"
+dataset_path = PROJECT_ROOT / "data" / "processed" / "cleaned_dataset.csv"
 df.to_csv(dataset_path, index=False)
 
 print("\n========================================")
@@ -674,7 +679,7 @@ print("\nExperiment split completed.")
 # SAVE FINAL CLEANED DATASET
 # ========================================
 
-output_file = r"D:\7th sem project\data\processed\cleaned_dataset.csv"
+output_file = PROJECT_ROOT / "data" / "processed" / "cleaned_dataset.csv"
 
 df.to_csv(output_file, index=False)
 

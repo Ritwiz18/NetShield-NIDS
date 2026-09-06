@@ -4,40 +4,42 @@ STEP 15: FINAL SYSTEM VALIDATION & PROJECT REPORT
 ==================================================
 Performs full validation across all pipeline components,
 generates:
-  - results/final_end_to_end_test.csv
-  - results/STEP_15_FINAL_VALIDATION.txt
-  - results/NIDS_PROJECT_REPORT.md
+  - <project-root>/results/final_end_to_end_test.csv
+  - <project-root>/results/STEP_15_FINAL_VALIDATION.txt
+  - <project-root>/results/NIDS_PROJECT_REPORT.md
 """
 
 import os
 import sys
 import importlib.util
 import warnings
+from pathlib import Path
 warnings.filterwarnings("ignore")
 
 import numpy as np
 import pandas as pd
 import joblib
 
-PROJECT_ROOT   = r"D:\7th sem project"
-APP_DIR        = os.path.join(PROJECT_ROOT, "app")
-INFERENCE_DIR  = os.path.join(PROJECT_ROOT, "inference")
-MODELS_DIR     = os.path.join(PROJECT_ROOT, "models")
-RESULTS_DIR    = os.path.join(PROJECT_ROOT, "results")
+SCRIPT_DIR     = Path(__file__).resolve().parent          # .../inference
+PROJECT_ROOT   = SCRIPT_DIR.parent                         # project root
+APP_DIR        = PROJECT_ROOT / "app"
+INFERENCE_DIR  = SCRIPT_DIR                                # alias
+MODELS_DIR     = PROJECT_ROOT / "models"
+RESULTS_DIR    = PROJECT_ROOT / "results"
 
-APP_PY         = os.path.join(APP_DIR, "app.py")
-APP_README     = os.path.join(APP_DIR, "README.md")
-INF_SCRIPT     = os.path.join(INFERENCE_DIR, "nids_inference.py")
-INF_README     = os.path.join(INFERENCE_DIR, "README.md")
-SAMPLE_BATCH   = os.path.join(INFERENCE_DIR, "sample_batch.csv")
-STEP13_SCRIPT  = os.path.join(INFERENCE_DIR, "step13_inference_test.py")
+APP_PY         = APP_DIR       / "app.py"
+APP_README     = APP_DIR       / "README.md"
+INF_SCRIPT     = INFERENCE_DIR / "nids_inference.py"
+INF_README     = INFERENCE_DIR / "README.md"
+SAMPLE_BATCH   = INFERENCE_DIR / "sample_batch.csv"
+STEP13_SCRIPT  = INFERENCE_DIR / "step13_inference_test.py"
 
-ET_MODEL_PATH  = os.path.join(PROJECT_ROOT, "extra_trees_model.pkl")
-SCALER_PATH    = os.path.join(MODELS_DIR, "scaler.pkl")
-ENCODER_PATH   = os.path.join(MODELS_DIR, "label_encoder.pkl")
-DATASET_PATH   = os.path.join(PROJECT_ROOT, "data", "processed", "cleaned_dataset.csv")
+ET_MODEL_PATH  = PROJECT_ROOT  / "extra_trees_model.pkl"
+SCALER_PATH    = MODELS_DIR    / "scaler.pkl"
+ENCODER_PATH   = MODELS_DIR    / "label_encoder.pkl"
+DATASET_PATH   = PROJECT_ROOT  / "data" / "processed" / "cleaned_dataset.csv"
 
-OUT_E2E_CSV    = os.path.join(RESULTS_DIR, "final_end_to_end_test.csv")
+OUT_E2E_CSV    = RESULTS_DIR   / "final_end_to_end_test.csv"
 OUT_VAL_TXT    = os.path.join(RESULTS_DIR, "STEP_15_FINAL_VALIDATION.txt")
 OUT_REPORT_MD  = os.path.join(RESULTS_DIR, "NIDS_PROJECT_REPORT.md")
 
