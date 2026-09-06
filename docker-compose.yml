@@ -17,6 +17,8 @@ services:
       - NET_RAW
     # On Linux Cloud VM hosts, uncommenting network_mode: host grants direct physical adapter access
     # network_mode: host
+    volumes:
+      - ./data:/app/data
     environment:
       - PYTHONUNBUFFERED=1
       - LOG_LEVEL=${LOG_LEVEL:-INFO}
@@ -35,7 +37,7 @@ services:
         max-size: "10m"
         max-file: "3"
     healthcheck:
-      test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://localhost:8000/api/status')\""]
+      test: [ "CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://localhost:8000/api/status')\"" ]
       interval: 10s
       timeout: 5s
       retries: 3
@@ -62,7 +64,7 @@ services:
         max-size: "10m"
         max-file: "3"
     healthcheck:
-      test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider http://localhost:80/ || exit 1"]
+      test: [ "CMD-SHELL", "wget --no-verbose --tries=1 --spider http://localhost:80/ || exit 1" ]
       interval: 10s
       timeout: 5s
       retries: 3

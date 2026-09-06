@@ -13,6 +13,7 @@ export function useNIDSData(pollIntervalMs = 2500) {
   const [currentRate, setCurrentRate] = useState({ packets_per_sec: 0, bytes_per_sec: 0 });
   const [threatsData, setThreatsData] = useState(null);
   const [alertsData, setAlertsData] = useState([]);
+  const [sensorsData, setSensorsData] = useState(null);
   const [interfaces, setInterfaces] = useState([]);
   
   const [isLoading, setIsLoading] = useState(true);
@@ -24,13 +25,14 @@ export function useNIDSData(pollIntervalMs = 2500) {
 
   const fetchAllData = useCallback(async () => {
     try {
-      const [statusRes, dashRes, trafficRes, threatsRes, alertsRes, ifaceRes] = await Promise.allSettled([
+      const [statusRes, dashRes, trafficRes, threatsRes, alertsRes, ifaceRes, sensorsRes] = await Promise.allSettled([
         apiService.getStatus(),
         apiService.getDashboard(),
         apiService.getTraffic(60),
         apiService.getThreats(),
         apiService.getAlerts(50),
         apiService.getInterfaces(),
+        apiService.getSensors(),
       ]);
 
       if (!isMountedRef.current) return;
@@ -64,6 +66,10 @@ export function useNIDSData(pollIntervalMs = 2500) {
 
       if (ifaceRes.status === 'fulfilled') {
         setInterfaces(ifaceRes.value.interfaces || []);
+      }
+
+      if (sensorsRes.status === 'fulfilled') {
+        setSensorsData(sensorsRes.value);
       }
 
       if (hasError) {
@@ -142,6 +148,7 @@ export function useNIDSData(pollIntervalMs = 2500) {
     currentRate,
     threatsData,
     alertsData,
+    sensorsData,
     interfaces,
     isLoading,
     error,

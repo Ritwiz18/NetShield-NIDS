@@ -110,36 +110,75 @@ class NetShieldSensorClient:
         engine: RealtimeMonitorEngine,
         api_url: Optional[str] = None,
         sensor_id: Optional[str] = None,
-        interval_seconds: float = 2.5
+        interval_seconds: float = 2.5,
+        heartbeat_interval_seconds: float = 5.0
     ):
         self.engine = engine
         self.api_url = (api_url or os.getenv("NETSHIELD_API_URL", "http://localhost:8000")).rstrip("/")
         self.sensor_id = sensor_id or os.getenv("NETSHIELD_SENSOR_ID", f"sensor-{socket.gethostname()}")
         self.interval_seconds = max(1.0, interval_seconds)
+        self.heartbeat_interval_seconds = max(2.0, heartbeat_interval_seconds)
 
         self._stop_event = threading.Event()
         self._worker_thread: Optional[threading.Thread] = None
+        self._heartbeat_thread: Optional[threading.Thread] = None
         self.is_connected: bool = False
         self.last_sync_time: Optional[float] = None
+        self.last_heartbeat_time: Optional[float] = None
         self.sync_count: int = 0
         self.last_error: Optional[str] = None
 
     def start(self):
-        """Starts background sensor telemetry reporter thread."""
+        """Starts background sensor telemetry reporter thread and heartbeat thread."""
         if self._worker_thread and self._worker_thread.is_alive():
             return
 
         self._stop_event.clear()
         self._worker_thread = threading.Thread(target=self._telemetry_loop, daemon=True)
         self._worker_thread.start()
-        logger.info(f"SensorClient [{self.sensor_id}] started. Target API: {self.api_url}/api/sensor/data")
+        self._heartbeat_thread = threading.Thread(target=self._heartbeat_loop, daemon=True)
+        self._heartbeat_thread.start()
+        logger.info(f"SensorClient [{self.sensor_id}] started. Target API: {self.api_url}/api/sensor/data (heartbeat: {self.heartbeat_interval_seconds}s)")
 
     def stop(self):
-        """Stops background reporter thread."""
+        """Stops background reporter and heartbeat threads."""
         self._stop_event.set()
         if self._worker_thread and self._worker_thread.is_alive():
             self._worker_thread.join(timeout=2.0)
+        if self._heartbeat_thread and self._heartbeat_thread.is_alive():
+            self._heartbeat_thread.join(timeout=2.0)
         logger.info(f"SensorClient [{self.sensor_id}] stopped.")
+
+    def _heartbeat_loop(self):
+        """Sends a lightweight heartbeat every heartbeat_interval_seconds."""
+        import platform as _platform
+        endpoint = f"{self.api_url}/api/sensor/heartbeat"
+        hostname = socket.gethostname()
+        platform_info = _platform.platform(terse=True)
+
+        while not self._stop_event.is_set():
+            try:
+                snap = self.engine.get_snapshot()
+                payload = {
+                    "sensor_id": self.sensor_id,
+                    "name": self.sensor_id,
+                    "hostname": hostname,
+                    "platform": platform_info,
+                    "version": "1.0.0",
+                    "packets_captured": snap.get("packets_captured", 0),
+                    "active_flows": snap.get("active_flows", 0),
+                    "threat_count": snap.get("threat_count", 0),
+                }
+                resp = requests.post(endpoint, json=payload, timeout=3.0)
+                if resp.status_code == 200:
+                    self.last_heartbeat_time = time.time()
+                    logger.debug(f"Heartbeat sent to {endpoint} — OK")
+                else:
+                    logger.warning(f"Heartbeat returned HTTP {resp.status_code}")
+            except Exception as e:
+                logger.debug(f"Heartbeat failed: {e}")
+
+            time.sleep(self.heartbeat_interval_seconds)
 
     def _telemetry_loop(self):
         """Periodic telemetry sync loop."""

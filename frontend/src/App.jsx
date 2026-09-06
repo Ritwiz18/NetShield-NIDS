@@ -22,6 +22,7 @@ export function App() {
     currentRate,
     threatsData,
     alertsData,
+    sensorsData,
     interfaces,
     isLoading,
     error,
@@ -44,6 +45,7 @@ export function App() {
             currentRate={currentRate}
             threatsData={threatsData}
             alertsData={alertsData}
+            sensorsData={sensorsData}
             error={error}
           />
         );
@@ -86,6 +88,9 @@ export function App() {
           <ReportsPage
             dashboardData={dashboardData}
             statusData={statusData}
+            alertsData={alertsData}
+            sensorsData={sensorsData}
+            threatsData={threatsData}
           />
         );
       case 'settings':

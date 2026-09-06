@@ -19,11 +19,13 @@ Network -> Scapy (capture.py) -> FlowManager (flow_manager.py)
 import os
 import sys
 import time
+import uuid
+import hashlib
 import platform
 import threading
 from collections import deque, Counter
 from typing import Dict, List, Any, Optional
-from datetime import datetime
+from datetime import datetime, timedelta
 import logging
 from contextlib import asynccontextmanager
 
@@ -31,6 +33,16 @@ import joblib
 import numpy as np
 import pandas as pd
 from fastapi import FastAPI, HTTPException, Query, Response, status
+from fastapi.responses import FileResponse
+from backend.database import init_db, get_db_session
+from backend.models import Sensor, Alert, TrafficMetric, Report
+from backend.report_generator import (
+    fetch_report_data,
+    generate_pdf_report,
+    generate_csv_report,
+    generate_json_report,
+    REPORTS_DIR,
+)
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 
@@ -263,8 +275,13 @@ service_manager = NIDSServiceManager()
 # ── Lifespan Context Manager ─────────────────────────────────────────
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Startup: Start background traffic statistics collector
+    # Startup: Initialize SQLite DB schema, then start background traffic collector
     logger.info("Initializing NetShield-NIDS REST API Service...")
+    try:
+        init_db()
+        logger.info("SQLite database initialized (netshield.db).")
+    except Exception as e:
+        logger.error(f"Database initialization failed: {e}", exc_info=True)
     service_manager.start_traffic_collector()
     yield
     # Shutdown: Stop traffic collector and cleanly stop monitoring if running
@@ -330,6 +347,17 @@ class SensorDataPayload(BaseModel):
     recent_detections: List[Dict[str, Any]] = []
     recent_incidents: List[Dict[str, Any]] = []
     top_source_ips: List[Dict[str, Any]] = []
+
+
+class SensorHeartbeatPayload(BaseModel):
+    sensor_id: str = Field(..., description="Unique sensor instance identifier")
+    name: Optional[str] = None
+    hostname: Optional[str] = None
+    platform: Optional[str] = None
+    version: Optional[str] = "1.0.0"
+    packets_captured: int = 0
+    active_flows: int = 0
+    threat_count: int = 0
 
 
 # ── Serialization & Helper Utilities ─────────────────────────────────
@@ -626,21 +654,51 @@ def get_threats():
 
 
 @app.get("/api/alerts", summary="Recent Incident Alerts")
-def get_alerts(limit: int = Query(25, ge=1, le=100, description="Max number of alerts to return")):
+def get_alerts(limit: int = Query(25, ge=1, le=100, description="Max number of alerts to return"), source: str = Query("db", description="'db' for persistent history, 'live' for in-memory only")):
     """
-    Returns recent security incident alerts formatted for incident response views.
+    Returns security incident alerts.
+    - source=db (default): Queries persistent SQLite history (survives container restarts).
+    - source=live: Returns in-memory recent incidents from the current sensor session.
     """
+    # ── DB-backed persistent alerts (default) ──────────────────────────
+    if source == "db":
+        try:
+            with get_db_session() as db:
+                rows = db.query(Alert).order_by(Alert.timestamp.desc()).limit(limit).all()
+                formatted = []
+                for row in rows:
+                    d = row.to_dict()
+                    formatted.append({
+                        "id": str(d.get("id", "NIDS-UNKNOWN")),
+                        "timestamp": d.get("timestamp", ""),
+                        "source_ip": d.get("source_ip", ""),
+                        "destination_ip": d.get("destination_ip", ""),
+                        "source_port": d.get("source_port", 0),
+                        "destination_port": d.get("destination_port", 0),
+                        "protocol": d.get("protocol", "TCP"),
+                        "attack_type": d.get("attack_type", "Unknown"),
+                        "confidence": d.get("confidence", "0.0%"),
+                        "confidence_level": "HIGH",
+                        "severity": d.get("severity", "HIGH"),
+                        "operational_status": "THREAT",
+                        "status": d.get("status", "New"),
+                        "flow_duration_sec": 0.0,
+                        "packets": 0,
+                        "bytes": 0,
+                        "explanation": d.get("explanation", "")
+                    })
+            return {"status": "ok", "total_alerts": len(formatted), "alerts": formatted}
+        except Exception as e:
+            logger.error(f"Failed to query alerts from DB: {e}", exc_info=True)
+            return {"status": "error", "total_alerts": 0, "alerts": []}
+
+    # ── Live in-memory fallback ────────────────────────────────────────
     active = service_manager.get_active_telemetry()
     data = active.get("data", {})
     if not data:
-        return {
-            "status": "ok",
-            "total_alerts": 0,
-            "alerts": []
-        }
+        return {"status": "ok", "total_alerts": 0, "alerts": []}
 
     sanitized_incidents = data.get("recent_incidents", [])
-
     formatted_alerts = []
     for inc in sanitized_incidents[:limit]:
         formatted_alerts.append({
@@ -662,11 +720,86 @@ def get_alerts(limit: int = Query(25, ge=1, le=100, description="Max number of a
             "bytes": inc.get("Bytes", 0),
             "explanation": inc.get("Explanation", "")
         })
+    return {"status": "ok", "total_alerts": len(formatted_alerts), "alerts": formatted_alerts}
+
+
+@app.post("/api/sensor/heartbeat", summary="Receive Sensor Heartbeat")
+def receive_sensor_heartbeat(payload: SensorHeartbeatPayload):
+    """
+    Accepts a lightweight heartbeat from a native sensor.
+    Upserts the sensor record in SQLite and marks status as ONLINE.
+    Sensors not seen within 15 seconds will be reported OFFLINE by GET /api/sensors.
+    """
+    now_dt = datetime.utcnow()
+    try:
+        with get_db_session() as db:
+            sensor = db.query(Sensor).filter(Sensor.sensor_id == payload.sensor_id).first()
+            if sensor is None:
+                sensor = Sensor(
+                    sensor_id=payload.sensor_id,
+                    name=payload.name or payload.sensor_id,
+                    hostname=payload.hostname,
+                    platform=payload.platform,
+                    version=payload.version,
+                    first_seen=now_dt,
+                    last_seen=now_dt,
+                    status="ONLINE",
+                    packets_captured=payload.packets_captured,
+                    active_flows=payload.active_flows,
+                    threat_count=payload.threat_count,
+                )
+                db.add(sensor)
+                logger.info(f"New sensor registered: {payload.sensor_id}")
+            else:
+                sensor.last_seen = now_dt
+                sensor.status = "ONLINE"
+                sensor.packets_captured = payload.packets_captured
+                sensor.active_flows = payload.active_flows
+                sensor.threat_count = payload.threat_count
+                if payload.name:
+                    sensor.name = payload.name
+                if payload.hostname:
+                    sensor.hostname = payload.hostname
+                if payload.platform:
+                    sensor.platform = payload.platform
+                if payload.version:
+                    sensor.version = payload.version
+    except Exception as e:
+        logger.error(f"Heartbeat DB error for sensor '{payload.sensor_id}': {e}", exc_info=True)
+
+    logger.debug(f"Heartbeat received from '{payload.sensor_id}'")
+    return {"status": "ok", "message": f"Heartbeat recorded for {payload.sensor_id}"}
+
+
+@app.get("/api/sensors", summary="List Registered Sensors")
+def list_sensors():
+    """
+    Returns all registered sensors from SQLite, dynamically evaluating
+    ONLINE vs OFFLINE status based on a 15-second heartbeat timeout.
+    """
+    TIMEOUT_SECONDS = service_manager.sensor_timeout_seconds
+    now_dt = datetime.utcnow()
+    results = []
+    try:
+        with get_db_session() as db:
+            sensors = db.query(Sensor).order_by(Sensor.last_seen.desc()).all()
+            for s in sensors:
+                # Dynamically evaluate online status — DB 'status' may be stale after container restart
+                if s.last_seen:
+                    delta = (now_dt - s.last_seen).total_seconds()
+                    computed_status = "ONLINE" if delta <= TIMEOUT_SECONDS else "OFFLINE"
+                else:
+                    computed_status = "OFFLINE"
+                row = s.to_dict()
+                row["status"] = computed_status
+                results.append(row)
+    except Exception as e:
+        logger.error(f"Failed to query sensors: {e}", exc_info=True)
 
     return {
         "status": "ok",
-        "total_alerts": len(formatted_alerts),
-        "alerts": formatted_alerts
+        "count": len(results),
+        "sensors": results
     }
 
 
@@ -675,18 +808,21 @@ def receive_sensor_data(payload: SensorDataPayload):
     """
     Receives real-time intrusion monitoring telemetry from a NetShield native sensor.
     Updates the central in-memory state for web dashboards.
+    Persists new alerts (with deduplication) and traffic snapshots to SQLite.
     """
     data_dict = payload.model_dump()
+    now = time.time()
+    now_dt = datetime.utcnow()
+
     with service_manager._lock:
         service_manager.latest_sensor_data = data_dict
-        service_manager.last_sensor_update_time = time.time()
+        service_manager.last_sensor_update_time = now
 
         # Update time-series traffic point
-        now = time.time()
         dt = max(0.1, now - service_manager._last_sample_time)
         delta_pkts = max(0, payload.packets_captured - service_manager._last_packet_count)
         pps = round(delta_pkts / dt, 2)
-        
+
         service_manager._last_packet_count = payload.packets_captured
         service_manager._last_sample_time = now
 
@@ -707,6 +843,52 @@ def receive_sensor_data(payload: SensorDataPayload):
             "uncertain_count": payload.uncertain_count
         }
         service_manager.traffic_history.append(point)
+
+    # ── Persist to SQLite ──────────────────────────────────────────────
+    try:
+        with get_db_session() as db:
+            # 1. Persist traffic snapshot every call
+            metric = TrafficMetric(
+                sensor_id=payload.sensor_id,
+                timestamp=now_dt,
+                packets=payload.packets_captured,
+                packets_per_sec=pps,
+                active_flows=payload.active_flows,
+                completed_flows=payload.completed_flows,
+                classified_flows=payload.classified_flows,
+                normal_count=payload.normal_count,
+                threat_count=payload.threat_count,
+                review_count=payload.review_count,
+                uncertain_count=payload.uncertain_count,
+            )
+            db.add(metric)
+
+            # 2. Persist new alert incidents (deduplicated by dedup_hash)
+            for inc in payload.recent_incidents:
+                # Build dedup key from: sensor + source_ip + dest_ip + attack_type + timestamp(minute)
+                raw_key = f"{payload.sensor_id}|{inc.get('Source IP','?')}|{inc.get('Destination IP','?')}|{inc.get('Attack','?')}|{inc.get('Timestamp','?')[:16]}"
+                dedup_hash = hashlib.sha256(raw_key.encode()).hexdigest()[:64]
+
+                exists = db.query(Alert).filter(Alert.dedup_hash == dedup_hash).first()
+                if not exists:
+                    alert = Alert(
+                        sensor_id=payload.sensor_id,
+                        timestamp=now_dt,
+                        source_ip=inc.get("Source IP") or inc.get("Source", ""),
+                        destination_ip=inc.get("Destination IP") or inc.get("Destination", ""),
+                        source_port=inc.get("Source Port", 0),
+                        destination_port=inc.get("Destination Port", 0),
+                        protocol=inc.get("Protocol", "TCP"),
+                        attack_type=inc.get("Attack", "Unknown"),
+                        confidence=inc.get("Confidence", "0.0%"),
+                        severity=inc.get("Severity", "HIGH"),
+                        status="New",
+                        explanation=inc.get("Explanation", ""),
+                        dedup_hash=dedup_hash,
+                    )
+                    db.add(alert)
+    except Exception as e:
+        logger.error(f"Database persistence error for sensor '{payload.sensor_id}': {e}", exc_info=True)
 
     logger.info(f"Received sensor telemetry from '{payload.sensor_id}' (Packets: {payload.packets_captured}, Flows: {payload.classified_flows})")
     return {"status": "ok", "message": f"Telemetry received from {payload.sensor_id}"}
@@ -847,3 +1029,195 @@ def reset_monitor():
         "status": "reset",
         "message": "Session metrics and history reset successfully."
     }
+
+
+# ─── Report Generation & Download Endpoints ─────────────────────────────────
+
+
+class ReportGenerateRequest(BaseModel):
+    format: str = Field("pdf", description="Report format: pdf, csv, or json")
+    time_range: str = Field("24h", description="Time range: 24h, 7d, 30d, or custom")
+    start_time: Optional[str] = Field(None, description="ISO 8601 start time (for custom range)")
+    end_time: Optional[str] = Field(None, description="ISO 8601 end time (for custom range)")
+    sensor_id: Optional[str] = Field(None, description="Filter by sensor ID (optional)")
+
+
+def _parse_report_time(value: Optional[str], fallback: datetime) -> datetime:
+    """Parse an ISO 8601 datetime string or return fallback."""
+    if not value:
+        return fallback
+    try:
+        if value.endswith("Z"):
+            value = value.replace("Z", "+00:00")
+        return datetime.fromisoformat(value)
+    except Exception:
+        return fallback
+
+
+@app.get("/api/reports", summary="List Generated Reports")
+def list_reports(limit: int = Query(25, ge=1, le=200)):
+    """
+    Returns metadata for all previously generated reports, newest first.
+    """
+    try:
+        with get_db_session() as db:
+            rows = db.query(Report).order_by(Report.generated_at.desc()).limit(limit).all()
+            serialized = [r.to_dict() for r in rows]
+        return {"status": "ok", "count": len(serialized), "reports": serialized}
+    except Exception as e:
+        logger.error(f"Failed to list reports: {e}", exc_info=True)
+        return {"status": "error", "count": 0, "reports": [], "error": str(e)}
+
+
+@app.get("/api/reports/{report_id}", summary="Get Report Detail")
+def get_report_detail(report_id: str):
+    """
+    Returns full metadata for a single report including all stored fields.
+    """
+    try:
+        with get_db_session() as db:
+            record = db.query(Report).filter(Report.report_id == report_id).first()
+            if not record:
+                raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Report '{report_id}' not found")
+            return {"status": "ok", "report": record.to_dict()}
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Failed to get report '{report_id}': {e}", exc_info=True)
+        return {"status": "error", "error": str(e)}
+
+
+@app.post("/api/reports/generate", summary="Generate a Security Investigation Report")
+def generate_report(req: ReportGenerateRequest):
+    """
+    Generates a Security Investigation Report in the requested format (PDF/CSV/JSON)
+    from real NetShield database records within the specified time window.
+
+    The report is persisted to /app/data/reports/ and its metadata is stored in SQLite.
+    """
+    report_id = f"NIDS-{uuid.uuid4().hex[:12].upper()}"
+    now = datetime.utcnow()
+    valid_formats = {"pdf", "csv", "json"}
+    fmt = req.format.lower() if req.format.lower() in valid_formats else "pdf"
+    valid_ranges = {"24h": 1, "7d": 7, "30d": 30}
+    time_range = req.time_range.lower() if req.time_range.lower() in valid_ranges else "24h"
+
+    end_time = _parse_report_time(req.end_time, now)
+    if req.time_range in valid_ranges:
+        start_time = end_time - timedelta(days=valid_ranges[req.time_range])
+    else:
+        start_time = _parse_report_time(req.start_time, end_time - timedelta(days=1))
+
+    sensor_filter = req.sensor_id if req.sensor_id else None
+
+    logger.info(f"Generating {fmt.upper()} report '{report_id}' from {start_time.isoformat()} to {end_time.isoformat()}")
+
+    # Fetch real data from database
+    try:
+        data = fetch_report_data(start_time, end_time, sensor_filter)
+    except Exception as e:
+        logger.error(f"Failed to fetch report data: {e}", exc_info=True)
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Data fetch failed: {e}")
+
+    data["report_id"] = report_id
+
+    # Generate file
+    ext = fmt
+    filename = f"{report_id}.{ext}"
+    file_path = os.path.join(REPORTS_DIR, filename)
+
+    try:
+        if fmt == "csv":
+            size, sha = generate_csv_report(data, file_path)
+        elif fmt == "json":
+            size, sha = generate_json_report(data, file_path)
+        else:
+            data["sha256"] = ""  # filled after PDF write
+            size, sha = generate_pdf_report(data, file_path)
+            data["sha256"] = sha  # update for DB record
+    except Exception as e:
+        logger.error(f"Report file generation failed: {e}", exc_info=True)
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Report generation failed: {e}")
+
+    # Persist metadata to SQLite
+    try:
+        with get_db_session() as db:
+            report_record = Report(
+                report_id=report_id,
+                report_type="security_investigation",
+                sensor_id=sensor_filter,
+                start_time=start_time,
+                end_time=end_time,
+                generated_at=now,
+                incident_count=data["summary"].get("total_incidents", 0),
+                format=fmt,
+                file_path=file_path,
+                file_size_bytes=size,
+                sha256=sha,
+                status="GENERATED",
+            )
+            db.add(report_record)
+        logger.info(f"Report '{report_id}' generated: {size:,} bytes, SHA256={sha[:16]}...")
+    except Exception as e:
+        logger.error(f"Failed to save report record to DB: {e}", exc_info=True)
+
+    return {
+        "status": "ok",
+        "report_id": report_id,
+        "format": fmt,
+        "file_path": file_path,
+        "file_size_bytes": size,
+        "sha256": sha,
+        "incident_count": data["summary"].get("total_incidents", 0),
+        "message": f"{fmt.upper()} report generated successfully",
+    }
+
+
+@app.get("/api/reports/{report_id}/download", summary="Download a Report File")
+def download_report(report_id: str, response: Response):
+    """
+    Downloads the report file for the given report_id.
+    Uses path-safe lookup from the database (no user-supplied path).
+    """
+    try:
+        with get_db_session() as db:
+            record = db.query(Report).filter(Report.report_id == report_id).first()
+            if record:
+                # Capture all needed attributes while session is alive
+                record_snapshot = {
+                    "report_id": record.report_id,
+                    "format": record.format,
+                    "file_path": record.file_path,
+                    "file_size_bytes": record.file_size_bytes,
+                }
+            else:
+                record_snapshot = None
+    except Exception as e:
+        logger.error(f"DB lookup failed for report '{report_id}': {e}")
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Database error")
+
+    if not record_snapshot:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Report '{report_id}' not found")
+
+    # Defensive: resolve real path only from DB record
+    real_path = os.path.normpath(record_snapshot["file_path"])
+    if not real_path.startswith(os.path.normpath(REPORTS_DIR)):
+        logger.error(f"Path traversal attempt blocked: {real_path}")
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Forbidden")
+
+    if not os.path.exists(real_path):
+        logger.error(f"Report file not found on disk: {real_path}")
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Report file not found on server")
+
+    content_type_map = {"pdf": "application/pdf", "csv": "text/csv", "json": "application/json"}
+    media_type = content_type_map.get(record_snapshot["format"], "application/octet-stream")
+    disposition = f"attachment; filename=\"{record_snapshot['report_id']}.{record_snapshot['format']}\""
+
+    response.headers["Content-Disposition"] = disposition
+    logger.info(f"Serving report download: {record_snapshot['report_id']}.{record_snapshot['format']} ({record_snapshot['file_size_bytes']:,} bytes)")
+
+    return FileResponse(
+        path=real_path,
+        media_type=media_type,
+        filename=f"{record_snapshot['report_id']}.{record_snapshot['format']}",
+    )

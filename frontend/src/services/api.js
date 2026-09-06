@@ -56,6 +56,9 @@ export const apiService = {
   // GET /api/interfaces
   getInterfaces: () => fetchJSON('/api/interfaces'),
 
+  // GET /api/sensors
+  getSensors: () => fetchJSON('/api/sensors'),
+
   // POST /api/monitor/start
   startMonitoring: (ifaceName = null) =>
     fetchJSON('/api/monitor/start', {
@@ -74,6 +77,41 @@ export const apiService = {
     fetchJSON('/api/monitor/reset', {
       method: 'POST',
     }),
+
+  // GET /api/reports
+  getReports: (limit = 25) => fetchJSON(`/api/reports?limit=${limit}`),
+
+  // GET /api/reports/{report_id}
+  getReport: (reportId) => fetchJSON(`/api/reports/${encodeURIComponent(reportId)}`),
+
+  // POST /api/reports/generate
+  generateReport: (options = {}) =>
+    fetchJSON('/api/reports/generate', {
+      method: 'POST',
+      body: JSON.stringify({
+        format: options.format || 'pdf',
+        time_range: options.timeRange || '24h',
+        start_time: options.startTime || null,
+        end_time: options.endTime || null,
+        sensor_id: options.sensorId || null,
+        report_type: options.reportType || 'security_investigation',
+      }),
+      timeout: 60000,
+    }),
 };
+
+// Direct download using browser fetch (bypasses JSON wrapper)
+export function downloadReport(reportId) {
+  const url = `${BASE_URL}/api/reports/${encodeURIComponent(reportId)}/download`;
+  return fetch(url).then(response => {
+    if (!response.ok) {
+      throw new Error(`Download failed: ${response.status} ${response.statusText}`);
+    }
+    const contentDisposition = response.headers.get('Content-Disposition') || '';
+    const match = contentDisposition.match(/filename="([^"]+)"/);
+    const filename = match ? match[1] : `${reportId}.pdf`;
+    return response.blob().then(blob => ({ blob, filename }));
+  });
+}
 
 export default apiService;

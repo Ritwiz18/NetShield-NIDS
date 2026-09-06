@@ -6,6 +6,7 @@ import { ProtocolDistribution } from '../components/ProtocolDistribution';
 import { TopThreatenedIPs } from '../components/TopThreatenedIPs';
 import { AlertsTable } from '../components/AlertsTable';
 import { SystemHealth } from '../components/SystemHealth';
+import { SensorStatus } from '../components/SensorStatus';
 import { AlertTriangleIcon, ActivityIcon } from '../components/Icons';
 
 export function DashboardPage({
@@ -15,6 +16,7 @@ export function DashboardPage({
   currentRate,
   threatsData,
   alertsData,
+  sensorsData,
   error
 }) {
   const isRunning = statusData?.monitoring_running ?? false;
@@ -67,6 +69,9 @@ export function DashboardPage({
 
       {/* 1. Summary Cards */}
       <SummaryCards dashboardData={dashboardData} currentRate={currentRate} />
+
+      {/* 1b. Sensor Health Status */}
+      <SensorStatus sensorsData={sensorsData} />
 
       {/* 2. Traffic Throughput Chart & Protocol Distribution */}
       <div className="grid-cols-3">
